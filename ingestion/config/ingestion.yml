@@ -1,0 +1,33 @@
+# 스크립트를 ingestion/ 디렉토리에서 실행한다고 가정
+
+# 초기 데이터 경로 설정
+data:
+  raw_dir: "./dataset"
+
+# 벡터 DB 설정
+vector_db:
+  type: "chroma"                      # 우선 chroma 사용하는 경우만
+  persist_directory: "./data/vector_store"
+
+# 임베딩 설정
+embedding:
+  provider: "openai"                  # "openai" | "local" | "weaviate" 등 
+  openai:
+    api_key: "${OPENAI_API_KEY}"      
+    model: "text-embedding-ada-002"
+  local:
+    model_name: "sentence-transformers/all-MiniLM-L6-v2"
+    device: "cpu"
+
+# LLM 설정
+llm:
+  provider: "openai"                  # 우선 oepn api 모델 사용하는 경우만
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    model: "gpt-3.5-turbo"
+    temperature: 0.0                  
+
+# 텍스트 청킹 파라미터
+chunking:
+  size: 500                           
+  overlap: 100                        

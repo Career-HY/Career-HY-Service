@@ -1,0 +1,20 @@
+# YAML 설정 읽기
+PyYAML
+
+# .env 파일 환경변수 로드
+python-dotenv
+
+# PDF → 텍스트
+pypdf
+
+# LangChain 코어
+langchain
+
+# LangChain Community Toolkit
+langchain-community
+
+# 벡터 DB (Chroma)
+chromadb
+
+# 진행률 표시
+tqdm

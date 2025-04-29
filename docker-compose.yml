@@ -1,0 +1,28 @@
+services:
+  ingestion:
+    build: ./ingestion
+    env_file:
+      - ./.env               # 루트 공통 변수
+      - ./ingestion/.env     # ingestion 전용 덮어쓰기
+    volumes:
+      - ./ingestion/dataset:/app/dataset
+      - ./ingestion/data/vector_store:/app/data/vector_store
+
+  backend:
+    build: ./backend
+    # env_file:
+    #   - ./.env
+    #   - ./backend/.env
+
+  crawler:
+    build: ./crawler
+    # env_file:
+    #   - ./.env
+    #   - ./crawler/.env
+
+  llm-service:
+    build: ./llm-service
+    # env_file:
+    #   - ./.env
+    #   - ./llm-service/.env
+
