@@ -8,6 +8,12 @@ services:
       - ./ingestion/dataset:/app/dataset
       - ./ingestion/data/vector_store:/app/data/vector_store
 
+  backend:
+    build: ./backend
+    # env_file:
+    #   - ./.env
+    #   - ./backend/.env
+
   crawler:
     build: ./crawler
     # env_file:
@@ -19,3 +25,4 @@ services:
     # env_file:
     #   - ./.env
     #   - ./llm-service/.env
+

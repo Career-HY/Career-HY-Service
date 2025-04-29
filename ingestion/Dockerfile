@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 2) 소스코드 및 설정 파일 복사
 COPY src/ ./src
-COPY ../config/ingestion.yml ./config/ingestion.yml
+COPY config/ingestion.yml ./config/ingestion.yml
 
 # 3) 실행 시 .env 로드 및 파이프라인 실행
-CMD ["sh", "-c", "export $(grep -v '^#' .env | xargs) && python src/pipeline.py"]
+CMD ["python", "src/ingestion.py"]
