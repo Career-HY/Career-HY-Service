@@ -10,9 +10,13 @@ services:
 
   backend:
     build: ./backend
-    # env_file:
-    #   - ./.env
-    #   - ./backend/.env
+    env_file:
+      - ./.env
+      - ./backend/.env
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src
 
   crawler:
     build: ./crawler
