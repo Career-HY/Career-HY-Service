@@ -6,8 +6,6 @@ from db import get_db
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
-# 라우터 등록
-
 
 @app.get("/")
 def root():
