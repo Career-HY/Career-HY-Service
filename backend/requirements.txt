@@ -1,0 +1,24 @@
+# YAML 설정 읽기
+PyYAML
+
+# .env 파일 환경변수 로드
+python-dotenv
+
+# fastapi
+fastapi
+
+# uvicorn
+uvicorn
+
+# pydantic
+pydantic
+
+# 진행률 표시
+tqdm
+
+# sqlalchemy
+sqlalchemy
+
+# pymysql
+pymysql
+
