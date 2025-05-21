@@ -8,7 +8,11 @@ load_dotenv(env_path)
 class Settings:
     APP_NAME: str = "Career-Hi Backend"
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
-    # DB_URL, SECRET_KEY 등 나중에 추가
-    # DB_URL: str = os.getenv("DB_URL")
+
+    DB_HOST: str = os.getenv("DB_HOST")
+    DB_PORT: int = int(os.getenv("DB_PORT", 3306))
+    DB_USER: str = os.getenv("DB_USER")
+    DB_PASS: str = os.getenv("DB_PASS")
+    DB_NAME: str = os.getenv("DB_NAME")
 
 settings = Settings()
