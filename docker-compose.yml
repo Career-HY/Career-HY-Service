@@ -2,8 +2,8 @@ services:
   ingestion:
     build: ./ingestion
     env_file:
-      - ./.env               # 루트 공통 변수
-      - ./ingestion/.env     # ingestion 전용 덮어쓰기
+      - ./.env               
+      - ./ingestion/.env     
     volumes:
       - ./ingestion/dataset:/app/dataset
       - ./ingestion/data/vector_store:/app/data/vector_store
@@ -13,7 +13,7 @@ services:
     env_file:
       - ./.env
     ports:
-      - "5000:5000"
+      - "5001:5001"
     volumes:
       - ./backend/src:/app/src
 
