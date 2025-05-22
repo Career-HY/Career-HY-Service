@@ -3,9 +3,10 @@ from config.config import settings
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from db import get_db
+from routers import user
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
-
+app.include_router(user.router, prefix="/users", tags=["users"])
 
 @app.get("/")
 def root():
