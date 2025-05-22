@@ -3,7 +3,6 @@ services:
     build: ./ingestion
     env_file:
       - ./.env               
-      - ./ingestion/.env     
     volumes:
       - ./ingestion/dataset:/app/dataset
       - ./ingestion/data/vector_store:/app/data/vector_store
