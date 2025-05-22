@@ -16,15 +16,15 @@ services:
     volumes:
       - ./backend/src:/app/src
 
-  crawler:
-    build: ./crawler
-    # env_file:
-    #   - ./.env
-    #   - ./crawler/.env
+  # crawler:
+  #   build: ./crawler
+  #   # env_file:
+  #   #   - ./.env
+  #   #   - ./crawler/.env
 
-  llm-service:
-    build: ./llm-service
-    # env_file:
-    #   - ./.env
-    #   - ./llm-service/.env
+  # llm-service:
+  #   build: ./llm-service
+  #   # env_file:
+  #   #   - ./.env
+  #   #   - ./llm-service/.env
 
