@@ -10,7 +10,9 @@ class User(Base):
     id = Column(
         String(36),
         primary_key=True,
+        default=lambda: str(uuid.uuid4()), 
         nullable=False,
+        unique=True,
         server_default=text("UUID()")
     )
 
