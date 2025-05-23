@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from db import models
-from schemas.user import UserCreate
+from schemas.user import UserCreate, UserLogin
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -27,3 +27,9 @@ def create_user(db: Session, user_in: UserCreate):
     # 4) 최신 상태로 동기화
     db.refresh(db_user)
     return db_user
+
+def authenticate_user(db: Session, creds: UserLogin):
+    user = get_user_by_email(db, creds.email)
+    if not user or user.pwd != creds.pwd:
+        return None
+    return user
