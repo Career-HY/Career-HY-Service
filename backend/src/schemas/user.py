@@ -6,6 +6,10 @@ class UserCreate(BaseModel):
     email: str
     pwd: str
 
+class UserLogin(BaseModel):
+    email: str
+    pwd: str
+
 class UserRead(BaseModel):
     id: str
     email: str
