@@ -6,6 +6,8 @@ services:
     volumes:
       - ./ingestion/dataset:/app/dataset
       - ./ingestion/data/vector_store:/app/data/vector_store
+    ports:
+      - "5002:5002"
 
   backend:
     build: ./backend
