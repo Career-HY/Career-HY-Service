@@ -29,3 +29,7 @@ tqdm
 
 #토큰 수 확인 
 tiktoken
+
+# fast api
+fastapi
+uvicorn

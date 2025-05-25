@@ -1,6 +1,9 @@
-#전체 실행 메인 
-def run_pipeline():
-    print("hello world!!!dkdkdk")
+from fastapi import FastAPI
 
-if __name__ == "__main__":
-    run_pipeline()
+app = FastAPI(title="Ingestion API")
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to Career-Hi Ingestion API!"}
+
+

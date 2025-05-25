@@ -9,8 +9,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 2) 소스코드 및 설정 파일 복사
-COPY src/ ./src
-COPY config/ingestion.yml ./config/ingestion.yml
+COPY src/ .
 
-# 3) 실행 시 .env 로드 및 파이프라인 실행
-CMD ["python", "src/ingestion.py"]
+# 3) 포트 노출 및 실행
+EXPOSE 5002
+CMD ["uvicorn", "ingestion:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]
