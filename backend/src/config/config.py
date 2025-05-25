@@ -14,5 +14,7 @@ class Settings:
     DB_USER: str = os.getenv("DB_USER")
     DB_PASS: str = os.getenv("DB_PASS")
     DB_NAME: str = os.getenv("DB_NAME")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "replace-with-your-secret")
+    
 
 settings = Settings()

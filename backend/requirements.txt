@@ -22,3 +22,5 @@ sqlalchemy
 # pymysql
 pymysql
 
+# itsdangerous - 쿠키 서명 및 검증
+itsdangerous

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from schemas.user import UserCreate, UserRead, UserLogin
@@ -25,8 +25,15 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=UserRead)
-def login(creds: UserLogin, db: Session = Depends(get_db)):
+def login(
+    creds: UserLogin,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    
     user = authenticate_user(db, creds)
     if not user:
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
+    
+    request.session["user_id"] = user.id
     return user
