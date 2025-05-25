@@ -8,4 +8,4 @@ llm-service/.env
 ingestion/data/
 
 # 초기 데이터셋
-ingestion/dataset
+ingestion/dataset.DS_Store
