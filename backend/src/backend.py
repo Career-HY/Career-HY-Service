@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Depends, Request
-from config.config import settings
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from db.session import get_db
-from backend.src.api.routers import user
 from starlette.middleware.sessions import SessionMiddleware
-from backend.src.api.routers import profile
+
+from config.config import settings
+from api.routers import user, profile
+from db.session import get_db
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)

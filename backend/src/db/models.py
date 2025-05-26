@@ -69,12 +69,17 @@ class ClubActivity(Base):
     profile_id = Column(String(36), ForeignKey("profile.member_id"))
     content    = Column(String(255))
 
+    # ——— 동아리-프로필 참조 ———
+    profile = relationship("Profile", back_populates="club_activities")
+
 
 class JobInterest(Base):
     __tablename__ = "job_interests"
     profile_id = Column(String(36), ForeignKey("profile.member_id"), primary_key=True)
     interest   = Column(String(255), primary_key=True)
 
+    # ——— 관심직무-프로필 참조 ———
+    profile = relationship("Profile", back_populates="job_interests")
 
 
 class CourseCatalog(Base):

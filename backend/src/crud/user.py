@@ -5,7 +5,10 @@ from db import models
 from schemas.user import UserCreate, UserLogin
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    return db.query(models.Member).filter(models.Member.email == email).first()
+
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(models.Member).filter(models.Member.id == user_id).first()
 
 def create_user(db: Session, user_in: UserCreate):
     # 1) 중복 검사
@@ -13,7 +16,7 @@ def create_user(db: Session, user_in: UserCreate):
         raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
     
     # 2) User 객체 생성
-    db_user = models.User(**user_in.dict())
+    db_user = models.Member(**user_in.dict())
     db.add(db_user)
 
     try:
