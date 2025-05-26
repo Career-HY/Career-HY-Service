@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from db import models
 from schemas.user import UserCreate, UserLogin
+from crud.profile import create_empty_profile
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.Member).filter(models.Member.email == email).first()
@@ -29,6 +30,16 @@ def create_user(db: Session, user_in: UserCreate):
 
     # 4) 최신 상태로 동기화
     db.refresh(db_user)
+    
+    # 5) 빈 프로필 자동 생성
+    try:
+        create_empty_profile(db, db_user.id)
+    except Exception as e:
+        # 프로필 생성 실패 시 사용자도 롤백
+        db.delete(db_user)
+        db.commit()
+        raise HTTPException(status_code=500, detail="프로필 생성 중 오류가 발생했습니다")
+    
     return db_user
 
 def authenticate_user(db: Session, creds: UserLogin):

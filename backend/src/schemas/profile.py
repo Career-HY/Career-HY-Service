@@ -41,3 +41,7 @@ class ProfileRead(BaseModel):
 class ProfileCreate(BaseModel):
     grade:      Optional[str] = None
     department: Optional[str] = None
+
+class ProfileUpdate(BaseModel):
+    grade:      Optional[str] = None
+    department: Optional[str] = None
