@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from db import models
 from schemas.user import UserCreate, UserLogin
 from crud.profile import create_empty_profile
+import uuid
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.Member).filter(models.Member.email == email).first()
@@ -16,8 +17,9 @@ def create_user(db: Session, user_in: UserCreate):
     if get_user_by_email(db, user_in.email):
         raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
     
-    # 2) User 객체 생성
-    db_user = models.Member(**user_in.dict())
+    # 2) UUID 생성 및 User 객체 생성
+    user_id = str(uuid.uuid4())
+    db_user = models.Member(id=user_id, **user_in.dict())
     db.add(db_user)
 
     try:
