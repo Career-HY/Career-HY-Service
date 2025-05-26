@@ -12,17 +12,6 @@ def get_profile(db: Session, member_id: str) -> Profile | None:
     return db.query(Profile).filter(Profile.member_id == member_id).first()
 
 
-def create_empty_profile(db: Session, member_id: str) -> Profile:
-    """
-    회원가입 시 자동으로 빈 프로필을 생성합니다.
-    """
-    prof = Profile(member_id=member_id, grade=None, department=None)
-    db.add(prof)
-    db.commit()
-    db.refresh(prof)
-    return prof
-
-
 def create_profile(db: Session, member_id: str, data: ProfileCreate) -> Profile:
     """
     로그인된 사용자의 프로필을 생성합니다.
