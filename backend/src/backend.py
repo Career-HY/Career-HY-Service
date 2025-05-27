@@ -6,6 +6,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from config.config import settings
 from api.routers import user, profile, course
 from db.session import get_db
+from util.logging import setup_logging
+
+# 로깅 시스템 초기화
+setup_logging()
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)

@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 
 from db.models import Profile, ClubActivity, JobInterest, CourseCatalog, Certification
 from schemas.profile import ProfileCreate, ProfileUpdate
+from util.logging import log_db_operation
 
 
+@log_db_operation("SELECT")
 def get_profile(db: Session, member_id: str) -> Profile | None:
     """
     주어진 member_id로 프로필을 조회합니다. 없으면 None을 반환합니다.
@@ -12,6 +14,7 @@ def get_profile(db: Session, member_id: str) -> Profile | None:
     return db.query(Profile).filter(Profile.member_id == member_id).first()
 
 
+@log_db_operation("INSERT")
 def create_profile(db: Session, member_id: str, data: ProfileCreate) -> Profile:
     """
     로그인된 사용자의 프로필을 생성합니다.
@@ -26,6 +29,7 @@ def create_profile(db: Session, member_id: str, data: ProfileCreate) -> Profile:
     return prof
 
 
+@log_db_operation("UPDATE")
 def update_profile(db: Session, member_id: str, data: ProfileUpdate) -> Profile:
     """
     로그인된 사용자의 프로필을 수정합니다.
