@@ -55,6 +55,9 @@ class Profile(Base):
     # ——— 프로필-관심직무 참조 ———
     job_interests   = relationship("JobInterest", back_populates="profile", cascade="all, delete-orphan")
 
+    # ——— 프로필-자격증 참조 ———
+    certifications = relationship("Certification", back_populates="profile", cascade="all, delete-orphan")
+
     # ——— 프로필-카탈로그 참조 ———
     course_catalogs = relationship(
         "CourseCatalog",
@@ -80,6 +83,17 @@ class JobInterest(Base):
 
     # ——— 관심직무-프로필 참조 ———
     profile = relationship("Profile", back_populates="job_interests")
+
+
+class Certification(Base):
+    __tablename__ = "certification"
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    member_id    = Column(String(36), ForeignKey("profile.member_id"))
+    content      = Column(String(255), nullable=True)
+    certified_at = Column(DateTime, nullable=True)
+
+    # ——— 자격증-프로필 참조 ———
+    profile = relationship("Profile", back_populates="certifications")
 
 
 class CourseCatalog(Base):

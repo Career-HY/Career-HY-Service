@@ -8,10 +8,20 @@ class ClubActivityRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ClubActivityCreate(BaseModel):
+    content: Optional[str] = None
+
+class ClubActivityUpdate(BaseModel):
+    id: Optional[int] = None  # 수정할 때는 ID 필요
+    content: Optional[str] = None
+
 class JobInterestRead(BaseModel):
     interest: str
     
     model_config = ConfigDict(from_attributes=True)
+
+class JobInterestCreate(BaseModel):
+    interest: str
 
 class CertificationRead(BaseModel):
     id: int
@@ -19,6 +29,15 @@ class CertificationRead(BaseModel):
     certified_at: Optional[datetime]
     
     model_config = ConfigDict(from_attributes=True)
+
+class CertificationCreate(BaseModel):
+    content: Optional[str] = None
+    certified_at: Optional[datetime] = None
+
+class CertificationUpdate(BaseModel):
+    id: Optional[int] = None  # 수정할 때는 ID 필요
+    content: Optional[str] = None
+    certified_at: Optional[datetime] = None
 
 class CourseCatalogRead(BaseModel):
     id: int
@@ -43,5 +62,9 @@ class ProfileCreate(BaseModel):
     department: Optional[str] = None
 
 class ProfileUpdate(BaseModel):
-    grade:      Optional[str] = None
-    department: Optional[str] = None
+    grade:           Optional[str] = None
+    department:      Optional[str] = None
+    club_activities: Optional[List[ClubActivityUpdate]] = None
+    job_interests:   Optional[List[str]] = None  # 관심직무는 문자열 리스트로 간단하게
+    certifications:  Optional[List[CertificationUpdate]] = None
+    course_catalog_ids: Optional[List[int]] = None  # 수강 이력은 기존 카탈로그 ID 리스트
