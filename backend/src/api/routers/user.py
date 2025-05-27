@@ -5,7 +5,7 @@ from schemas.user import UserCreate, UserRead, UserLogin
 from crud.user import create_user, get_user_by_email, authenticate_user
 from db.session import get_db
 
-router = APIRouter()
+router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/signup", response_model=UserRead, status_code=201)
