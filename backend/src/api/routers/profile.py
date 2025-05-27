@@ -11,10 +11,12 @@ from crud.profile import (
 )
 from db.session import get_db
 from util.deps import get_current_user
+from util.logging import log_api_call
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 @router.get("", response_model=ProfileRead)
+@log_api_call
 def read_own_profile(
     current_user = Depends(get_current_user),  # 로그인 확인: 로그인이 안되어있으면 401 에러 발생
     db: Session = Depends(get_db),
@@ -41,6 +43,7 @@ def read_own_profile(
     "",
     response_model=ProfileRead
 )
+@log_api_call
 def edit_profile(
     data: ProfileUpdate,
     current_user = Depends(get_current_user),

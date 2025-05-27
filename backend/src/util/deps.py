@@ -2,8 +2,10 @@ from fastapi import Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 from db.session import get_db
 from crud.user import get_user_by_id
+from util.logging import log_function
 
 # 로그인된 사용자 정보를 가져오는 함수입니다.
+@log_function
 def get_current_user(
     request: Request,
     db: Session = Depends(get_db),

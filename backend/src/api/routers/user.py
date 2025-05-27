@@ -4,27 +4,25 @@ from sqlalchemy.orm import Session
 from schemas.user import UserCreate, UserRead, UserLogin
 from crud.user import create_user, get_user_by_email, authenticate_user
 from db.session import get_db
+from util.logging import log_api_call
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/signup", response_model=UserRead, status_code=201)
+@log_api_call
 def signup(user_in: UserCreate, db: Session = Depends(get_db)):
-    # 1) 이메일 중복 체크
-    if get_user_by_email(db, user_in.email):
-        raise HTTPException(
-            status_code=400,
-            detail="이미 사용 중인 이메일입니다."
-        )
-
-    # 2) 신규 사용자 생성
+    """
+    신규 사용자를 생성합니다.
+    이메일 중복 검사와 프로필 생성은 create_user()에서 처리됩니다.
+    """
+    # 신규 사용자 생성 (중복 검사 포함)
     user = create_user(db, user_in)
-
-    # 3) 생성된 UserRead 모델 반환
     return user
 
 
 @router.post("/login", response_model=UserRead)
+@log_api_call
 def login(
     creds: UserLogin,
     request: Request,

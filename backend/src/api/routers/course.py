@@ -5,10 +5,12 @@ from typing import Optional, List
 from schemas.course import CourseCatalogSearch, CourseCatalogSearchResult
 from crud.course import search_courses
 from db.session import get_db
+from util.logging import log_api_call
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 @router.get("/search", response_model=List[CourseCatalogSearchResult])
+@log_api_call
 def search_course_catalog(
     q: Optional[str] = Query(None, description="검색어 (과목명 또는 개설학과에서 검색)"),
     limit: int = Query(50, description="검색 결과 개수 제한", le=100),

@@ -9,3 +9,6 @@ ingestion/data/
 
 # 초기 데이터셋
 ingestion/dataset.DS_Store
+
+# 로그 파일
+*.log
