@@ -1,5 +1,6 @@
 import functools
 import logging
+import logging.handlers
 import time
 import json
 import os
@@ -60,10 +61,30 @@ def setup_logging():
                     
             return base_msg
     
-    # 파일 핸들러 (JSON 형태로 저장)
-    file_handler = logging.FileHandler('logs/backend.log', encoding='utf-8')
-    file_handler.setFormatter(JSONFormatter())
-    file_handler.setLevel(logging.INFO)
+    # 1. 일반 로그 파일 핸들러 (INFO 이상, 날짜별 분리)
+    general_handler = logging.handlers.TimedRotatingFileHandler(
+        filename='logs/backend.log',
+        when='midnight',  # 자정마다 로테이션
+        interval=1,       # 1일마다
+        backupCount=30,   # 30일치 보관
+        encoding='utf-8'
+    )
+    general_handler.setFormatter(JSONFormatter())
+    general_handler.setLevel(logging.INFO)
+    # 파일명에 날짜 형식 지정 (예: backend.log.2025-05-27)
+    general_handler.suffix = "%Y-%m-%d"
+    
+    # 2. 에러 로그 파일 핸들러 (ERROR 이상만, 날짜별 분리)
+    error_handler = logging.handlers.TimedRotatingFileHandler(
+        filename='logs/backend-error.log',
+        when='midnight',
+        interval=1,
+        backupCount=30,  
+        encoding='utf-8'
+    )
+    error_handler.setFormatter(JSONFormatter())
+    error_handler.setLevel(logging.ERROR)
+    error_handler.suffix = "%Y-%m-%d"
     
     # 콘솔 핸들러 (읽기 쉬운 형태로 출력)
     console_handler = logging.StreamHandler()
@@ -73,8 +94,9 @@ def setup_logging():
     # 루트 로거 설정
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
+    root_logger.addHandler(general_handler)  # INFO 이상 로그
+    root_logger.addHandler(error_handler)    # ERROR 이상 로그
+    root_logger.addHandler(console_handler)  # 콘솔 출력
     
     return root_logger
 
