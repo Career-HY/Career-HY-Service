@@ -45,11 +45,9 @@ def setup_logging():
             # 기본 로그 형태
             base_msg = f"[{timestamp}] {record.levelname:8} | {record.module}.{record.funcName}:{record.lineno} | {record.getMessage()}"
             
-            # 추가 데이터가 있으면 포함
+            # 추가 데이터가 있으면 포함 (Event는 제외 - 이미 메시지에 포함됨)
             if hasattr(record, 'extra_data'):
                 extra = record.extra_data
-                if 'event' in extra:
-                    base_msg += f" | Event: {extra['event']}"
                 if 'execution_time' in extra:
                     base_msg += f" | Time: {extra['execution_time']}s"
                 if 'operation_type' in extra:
@@ -122,7 +120,9 @@ def log_api_call(func: Callable) -> Callable:
                 break
         
         # 요청 시작 로깅
-        logger.info("API 호출 시작", extra={
+        api_path = request_info.get("url", "").split("?")[0] if request_info else ""
+        method = request_info.get("method", "") if request_info else ""
+        logger.info(f"API 호출 시작: {method} {api_path} ({func.__name__})", extra={
             "extra_data": {
                 "event": "api_call_start",
                 "function": func.__name__,
@@ -142,7 +142,7 @@ def log_api_call(func: Callable) -> Callable:
             execution_time = time.time() - start_time
             
             # 성공 로깅
-            logger.info("API 호출 성공", extra={
+            logger.info(f"API 호출 성공: {method} {api_path} ({func.__name__})", extra={
                 "extra_data": {
                     "event": "api_call_success",
                     "function": func.__name__,
@@ -175,8 +175,8 @@ def log_api_call(func: Callable) -> Callable:
         start_time = time.time()
         logger = logging.getLogger(f"api.{func.__name__}")
         
-        # 요청 시작 로깅
-        logger.info("API 호출 시작", extra={
+        # 요청 정보 추출 (sync에서는 Request 객체를 직접 접근하기 어려우므로 함수명만 사용)
+        logger.info(f"API 호출 시작: {func.__name__}", extra={
             "extra_data": {
                 "event": "api_call_start",
                 "function": func.__name__,
@@ -190,7 +190,7 @@ def log_api_call(func: Callable) -> Callable:
             execution_time = time.time() - start_time
             
             # 성공 로깅
-            logger.info("API 호출 성공", extra={
+            logger.info(f"API 호출 성공: {func.__name__}", extra={
                 "extra_data": {
                     "event": "api_call_success",
                     "function": func.__name__,
@@ -236,7 +236,7 @@ def log_db_operation(operation_type: str = "unknown"):
             logger = logging.getLogger(f"db.{func.__name__}")
             
             # 작업 시작 로깅
-            logger.info("DB 작업 시작", extra={
+            logger.info(f"DB 작업 시작: {operation_type} - {func.__name__}", extra={
                 "extra_data": {
                     "event": "db_operation_start",
                     "operation_type": operation_type,
@@ -249,7 +249,7 @@ def log_db_operation(operation_type: str = "unknown"):
                 execution_time = time.time() - start_time
                 
                 # 성공 로깅
-                logger.info("DB 작업 성공", extra={
+                logger.info(f"DB 작업 성공: {operation_type} - {func.__name__}", extra={
                     "extra_data": {
                         "event": "db_operation_success",
                         "operation_type": operation_type,
@@ -289,7 +289,7 @@ def log_function(func: Callable) -> Callable:
         start_time = time.time()
         logger = logging.getLogger(f"function.{func.__name__}")
         
-        logger.info("함수 실행 시작", extra={
+        logger.info(f"함수 실행 시작: {func.__name__}", extra={
             "extra_data": {
                 "event": "function_start",
                 "function": func.__name__
@@ -300,7 +300,7 @@ def log_function(func: Callable) -> Callable:
             result = func(*args, **kwargs)
             execution_time = time.time() - start_time
             
-            logger.info("함수 실행 완료", extra={
+            logger.info(f"함수 실행 완료: {func.__name__}", extra={
                 "extra_data": {
                     "event": "function_success",
                     "function": func.__name__,
