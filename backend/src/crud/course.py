@@ -4,7 +4,9 @@ from typing import List
 
 from db.models import CourseCatalog
 from schemas.course import CourseCatalogSearch
+from util.logging import log_db_operation
 
+@log_db_operation("SELECT")
 def search_courses(db: Session, search_params: CourseCatalogSearch) -> List[CourseCatalog]:
     """
     수강편람에서 과목을 검색합니다.

@@ -17,7 +17,7 @@ def setup_logging():
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     
-    # JSON 포맷터
+    # JSON 포맷터 (파일용 - 운영/분석용)
     class JSONFormatter(logging.Formatter):
         def format(self, record):
             log_entry = {
@@ -34,16 +34,40 @@ def setup_logging():
             if hasattr(record, 'extra_data'):
                 log_entry.update(record.extra_data)
                 
-            return json.dumps(log_entry, ensure_ascii=False, indent=2)
+            return json.dumps(log_entry, ensure_ascii=False)
     
-    # 파일 핸들러
+    # 사람이 읽기 쉬운 포맷터 (콘솔용 - 개발용)
+    class ReadableFormatter(logging.Formatter):
+        def format(self, record):
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 기본 로그 형태
+            base_msg = f"[{timestamp}] {record.levelname:8} | {record.module}.{record.funcName}:{record.lineno} | {record.getMessage()}"
+            
+            # 추가 데이터가 있으면 포함
+            if hasattr(record, 'extra_data'):
+                extra = record.extra_data
+                if 'event' in extra:
+                    base_msg += f" | Event: {extra['event']}"
+                if 'execution_time' in extra:
+                    base_msg += f" | Time: {extra['execution_time']}s"
+                if 'operation_type' in extra:
+                    base_msg += f" | Operation: {extra['operation_type']}"
+                if 'error_type' in extra:
+                    base_msg += f" | Error: {extra['error_type']}"
+                if 'error_message' in extra:
+                    base_msg += f" | {extra['error_message']}"
+                    
+            return base_msg
+    
+    # 파일 핸들러 (JSON 형태로 저장)
     file_handler = logging.FileHandler('logs/backend.log', encoding='utf-8')
     file_handler.setFormatter(JSONFormatter())
     file_handler.setLevel(logging.INFO)
     
-    # 콘솔 핸들러 (개발용)
+    # 콘솔 핸들러 (읽기 쉬운 형태로 출력)
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(JSONFormatter())
+    console_handler.setFormatter(ReadableFormatter())
     console_handler.setLevel(logging.DEBUG)
     
     # 루트 로거 설정
@@ -243,7 +267,7 @@ def log_function(func: Callable) -> Callable:
         start_time = time.time()
         logger = logging.getLogger(f"function.{func.__name__}")
         
-        logger.debug("함수 실행 시작", extra={
+        logger.info("함수 실행 시작", extra={
             "extra_data": {
                 "event": "function_start",
                 "function": func.__name__
@@ -254,7 +278,7 @@ def log_function(func: Callable) -> Callable:
             result = func(*args, **kwargs)
             execution_time = time.time() - start_time
             
-            logger.debug("함수 실행 완료", extra={
+            logger.info("함수 실행 완료", extra={
                 "extra_data": {
                     "event": "function_success",
                     "function": func.__name__,

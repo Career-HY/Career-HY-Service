@@ -4,13 +4,17 @@ from sqlalchemy.exc import IntegrityError
 from db import models
 from schemas.user import UserCreate, UserLogin
 import uuid
+from util.logging import log_db_operation
 
+@log_db_operation("SELECT")
 def get_user_by_email(db: Session, email: str):
     return db.query(models.Member).filter(models.Member.email == email).first()
 
+@log_db_operation("SELECT")
 def get_user_by_id(db: Session, user_id: int):
     return db.query(models.Member).filter(models.Member.id == user_id).first()
 
+@log_db_operation("INSERT")
 def create_user(db: Session, user_in: UserCreate):
     # 1) 중복 검사
     if get_user_by_email(db, user_in.email):
@@ -45,6 +49,10 @@ def create_user(db: Session, user_in: UserCreate):
     return db_user
 
 def authenticate_user(db: Session, creds: UserLogin):
+    """
+    사용자 인증을 수행합니다.
+    실제 DB 작업은 get_user_by_email()에서 수행되므로 별도 로깅하지 않습니다.
+    """
     user = get_user_by_email(db, creds.email)
     if not user or user.pwd != creds.pwd:
         return None
