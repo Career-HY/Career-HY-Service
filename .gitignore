@@ -12,3 +12,6 @@ ingestion/dataset.DS_Store
 
 # 로그 파일
 *.log
+
+# 커서 규칙
+.cursorrules

@@ -169,3 +169,32 @@ class JobPosting(Base):
         secondary=job_posting_mapping,
         back_populates="job_postings"
     )
+
+
+class Chatroom(Base):
+    __tablename__ = "chat_room"
+    
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    member_id  = Column(String(36), ForeignKey("member.id"), nullable=False)
+    title      = Column(String(255), nullable=True)  # 채팅방 제목 (추가됨)
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    
+    # ——— 채팅방-멤버 참조 ———
+    member = relationship("Member")
+    
+    # ——— 채팅방-메시지 참조 ———  
+    messages = relationship("ChatMessage", back_populates="chatroom", cascade="all, delete-orphan")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_history"
+    
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    chat_room_id = Column(Integer, ForeignKey("chat_room.id"), nullable=False)
+    sender       = Column(Enum("user", "llm", name="sender_type"), nullable=False)
+    content      = Column(Text, nullable=True)
+    created_at   = Column(DateTime, nullable=False, server_default=func.now())
+    
+    # ——— 메시지-채팅방 참조 ———
+    chatroom = relationship("Chatroom", back_populates="messages")
