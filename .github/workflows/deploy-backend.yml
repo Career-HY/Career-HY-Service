@@ -31,12 +31,6 @@ jobs:
             cd Carrer-Hi-RAG
           fi
           
-          # .env 파일이 있는지 확인 (사전에 수동으로 업로드 필요)
-          if [ ! -f ".env" ]; then
-            echo "❌ .env 파일이 없습니다. 수동으로 업로드해주세요."
-            exit 1
-          fi
-          
           # 기존 백엔드 컨테이너 정리 및 재시작
           sudo docker-compose down backend || true
           sudo docker-compose up -d --build backend 
