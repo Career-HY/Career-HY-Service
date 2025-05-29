@@ -31,6 +31,16 @@ jobs:
             cd Carrer-Hi-RAG
           fi
           
-          # 기존 백엔드 컨테이너 정리 및 재시작
-          sudo docker-compose down backend || true
-          sudo docker-compose up -d --build backend 
+          # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
+          if [ -f "~/.env" ]; then
+            cp ~/.env .
+            echo "✅ .env 파일을 복사했습니다."
+          else
+            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
+            exit 1
+          fi
+          
+          # 기존 백엔드 컨테이너만 정리 및 재시작
+          sudo docker-compose stop backend || true
+          sudo docker-compose rm -f backend || true
+          sudo docker-compose up -d --build backend
