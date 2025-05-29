@@ -32,5 +32,6 @@ tqdm
 tiktoken
 
 # fast api
-fastapi
-uvicorn
+fastapi>=0.68.0
+uvicorn>=0.15.0
+pydantic>=1.8.0

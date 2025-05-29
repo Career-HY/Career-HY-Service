@@ -1,9 +1,34 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from src.api.retrieval import router
+from src.util.logging import setup_logging
 
-app = FastAPI(title="Ingestion API")
+# 로깅 설정 초기화
+setup_logging()
+
+app = FastAPI(
+    title="Career-Hi Ingestion API",
+    description="Document retrieval and processing API for Career-Hi",
+    version="1.0.0",
+)
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 실제 운영 환경에서는 구체적인 origin으로 변경해야 함
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# API 라우터 등록
+app.include_router(router)
+
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi Ingestion API!"}
-
-
+    return {
+        "message": "Welcome to Career-Hi Ingestion API!",
+        "docs_url": "/docs",  # Swagger UI
+        "redoc_url": "/redoc",  # ReDoc
+    }
