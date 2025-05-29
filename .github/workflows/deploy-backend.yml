@@ -1,0 +1,42 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ dev ]
+    paths: 
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: 43.202.52.11
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # 최신 코드 받기
+          if [ -d "Carrer-Hi-RAG" ]; then
+            cd Carrer-Hi-RAG
+            git pull origin main
+          else
+            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+            cd Carrer-Hi-RAG
+          fi
+          
+          # .env 파일이 있는지 확인 (사전에 수동으로 업로드 필요)
+          if [ ! -f ".env" ]; then
+            echo "❌ .env 파일이 없습니다. 수동으로 업로드해주세요."
+            exit 1
+          fi
+          
+          # 기존 백엔드 컨테이너 정리 및 재시작
+          sudo docker-compose down backend || true
+          sudo docker-compose up -d --build backend 
