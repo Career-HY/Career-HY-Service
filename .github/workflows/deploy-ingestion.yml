@@ -16,16 +16,12 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Deploy to EC2
-      run: |
-        # SSH 키를 파일로 저장
-        echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        
-        # SSH known_hosts에 서버 추가 (보안 경고 방지)
-        ssh-keyscan -H 54.180.152.44 >> ~/.ssh/known_hosts
-        
-        # SSH로 배포 명령어 실행
-        ssh ubuntu@54.180.152.44 '
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: 54.180.152.44
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
           # 최신 코드 받기
           if [ -d "Carrer-Hi-RAG" ]; then
             cd Carrer-Hi-RAG
@@ -35,13 +31,16 @@ jobs:
             cd Carrer-Hi-RAG
           fi
           
-          # .env 파일이 있는지 확인
-          if [ ! -f ".env" ]; then
-            echo "❌ .env 파일이 없습니다. 수동으로 업로드해주세요."
+          # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
+          if [ -f "~/.env" ]; then
+            cp ~/.env .
+            echo "✅ .env 파일을 복사했습니다."
+          else
+            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
             exit 1
           fi
           
-          # 기존 Ingestion 컨테이너 정리 및 재시작
-          sudo docker-compose down ingestion || true
-          sudo docker-compose up -d --build ingestion
-        ' 
+          # 기존 Ingestion 컨테이너만 정리 및 재시작
+          sudo docker-compose stop ingestion || true
+          sudo docker-compose rm -f ingestion || true
+          sudo docker-compose up -d --build ingestion 
