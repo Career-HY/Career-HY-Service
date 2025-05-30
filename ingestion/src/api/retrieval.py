@@ -40,6 +40,7 @@ def create_profile_query(
 
     if course_keywords:
         query_parts.append(f"관련 키워드: {' '.join(course_keywords)}")
+    
 
     return " ".join(query_parts)
 
