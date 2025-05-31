@@ -7,7 +7,6 @@ app = FastAPI(
     title=settings.APP_NAME, 
     debug=settings.DEBUG,
     description="Career-Hi LLM Service API",
-    version="1.0.0"
 )
 
 # CORS 미들웨어 추가
