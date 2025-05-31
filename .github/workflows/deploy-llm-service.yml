@@ -25,10 +25,11 @@ jobs:
           # 최신 코드 받기
           if [ -d "Carrer-Hi-RAG" ]; then
             cd Carrer-Hi-RAG
-            git pull origin main
+            git pull origin dev
           else
             git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
             cd Carrer-Hi-RAG
+            git checkout dev
           fi
           
           # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
