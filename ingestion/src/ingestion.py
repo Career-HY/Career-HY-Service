@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.retrieval import router
-from src.util.logging import setup_logging
+from api.retrieval import router
+from util.logging import setup_logging
 
 # 로깅 설정 초기화
 setup_logging()
@@ -28,7 +28,5 @@ app.include_router(router)
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to Career-Hi Ingestion API!",
-        "docs_url": "/docs",  # Swagger UI
-        "redoc_url": "/redoc",  # ReDoc
+        "message": "Welcome to Career-Hi Ingestion API! test",
     }
