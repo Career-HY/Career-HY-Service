@@ -18,6 +18,18 @@ services:
     volumes:
       - ./backend/src:/app/src
 
+  llm-service:
+    build: ./llm-service
+    env_file:
+      - ./.env
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./llm-service/src:/app/src
+      - ./llm-service/logs:/app/logs
+    depends_on:
+      - backend
+
   # crawler:
   #   build: ./crawler
   #   # env_file:

@@ -1,0 +1,33 @@
+ # YAML 설정 읽기
+PyYAML
+
+# .env 파일 환경변수 로드
+python-dotenv
+
+# fastapi
+fastapi
+
+# uvicorn
+uvicorn
+
+# pydantic
+pydantic
+
+# 진행률 표시
+tqdm
+
+# HTTP 클라이언트 (OpenAI API 등 외부 LLM API 호출용)
+httpx
+requests
+
+# OpenAI API (예시)
+openai
+
+# langchain
+langchain-openai
+
+# JSON 처리
+ujson
+
+# 환경 변수 검증
+pydantic-settings
