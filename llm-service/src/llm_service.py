@@ -20,5 +20,5 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi LLM Service!! 5/31 20:50 test"}
+    return {"message": "Welcome to Career-Hi LLM Service!! 5/31 21:30 test"}
 
