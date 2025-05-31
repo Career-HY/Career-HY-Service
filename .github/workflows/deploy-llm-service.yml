@@ -1,0 +1,53 @@
+name: Deploy LLM Service
+
+on:
+  push:
+    branches: [ dev ]
+    paths: 
+      - 'llm-service/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: 15.164.224.87
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # 최신 코드 받기
+          if [ -d "Carrer-Hi-RAG" ]; then
+            cd Carrer-Hi-RAG
+            git pull origin main
+          else
+            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+            cd Carrer-Hi-RAG
+          fi
+          
+          # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
+          if [ -f ~/.env ]; then
+            cp ~/.env .
+            echo "✅ .env 파일을 복사했습니다."
+          else
+            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
+            echo "📁 홈 디렉토리 파일 목록:"
+            ls -la ~/
+            exit 1
+          fi
+          
+          # 기존 LLM Service 컨테이너만 정리 및 재시작
+          sudo docker-compose stop llm-service || true
+          sudo docker-compose rm -f llm-service || true
+          sudo docker-compose up -d --build llm-service
+          
+          # 배포 완료 확인
+          echo "🚀 LLM Service 배포가 완료되었습니다."
+          echo "📋 실행 중인 컨테이너 확인:"
+          sudo docker-compose ps 
