@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from .models import RetrievalRequest, RetrievalResponse, JobPosting
-from src.embedder import OpenAITextEmbedder
-from src.vector import query_chroma
-from src.util.logging import log_api_call
+from embedder import OpenAITextEmbedder
+from vector import query_chroma
+from util.logging import log_api_call
 
 # 임베딩 모델 초기화
 embedder = OpenAITextEmbedder()
