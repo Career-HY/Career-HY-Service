@@ -18,7 +18,7 @@ jobs:
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.6
       with:
-        host: 15.164.224.87
+        host: ${{ secrets.LLM_SERVICE_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
