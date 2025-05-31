@@ -20,7 +20,7 @@ app.include_router(chatroom.router)
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi Backend!! 5/31 test"}
+    return {"message": "Welcome to Career-Hi Backend!! 5/31 20:50 test"}
 
 
 @app.get("/health")
