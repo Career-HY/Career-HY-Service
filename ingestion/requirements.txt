@@ -8,9 +8,10 @@ python-dotenv
 pypdf
 
 #임베딩 모델 
-sentence-transformers
-transformers
-scikit-learn
+# 빌드할 때 GPU 사용 관련해서 문제가 있어서 당장 사용하지 않는 임베딩 모델들 주석처리 하겠습니다.
+# sentence-transformers
+# transformers
+# scikit-learn
 
 # LangChain 코어
 langchain
