@@ -21,16 +21,12 @@ jobs:
         chmod 700 ~/.ssh
 
     - name: Deploy to EC2
-      run: |
-        # SSH 키를 파일로 저장
-        echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        
-        # SSH known_hosts에 서버 추가 (보안 경고 방지)
-        ssh-keyscan -H 54.180.152.44 >> ~/.ssh/known_hosts
-        
-        # SSH로 배포 명령어 실행
-        ssh ubuntu@54.180.152.44 '
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: 54.180.152.44
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
           # 최신 코드 받기
           if [ -d "Carrer-Hi-RAG" ]; then
             cd Carrer-Hi-RAG
@@ -53,5 +49,6 @@ jobs:
           # 기존 Ingestion 컨테이너만 정리 및 재시작
           sudo docker-compose stop ingestion || true
           sudo docker-compose rm -f ingestion || true
-          sudo docker-compose up -d --build ingestion 
-        '
+          sudo docker-compose up -d --build ingestion
+        
+
