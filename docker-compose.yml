@@ -27,8 +27,6 @@ services:
     volumes:
       - ./llm-service/src:/app/src
       - ./llm-service/logs:/app/logs
-    depends_on:
-      - backend
 
   # crawler:
   #   build: ./crawler
