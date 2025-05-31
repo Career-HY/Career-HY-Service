@@ -15,6 +15,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Setup SSH directory
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
     - name: Deploy to EC2
       run: |
         # SSH 키를 파일로 저장
