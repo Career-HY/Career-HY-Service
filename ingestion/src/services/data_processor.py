@@ -6,11 +6,9 @@ from typing import List, Dict, Any
 from pathlib import Path
 import logging
 
-from s3_loader import S3DataLoader
-from loader import extract_text_PyMuPDF
-from cleaner import clean_text
+from storage import S3DataLoader, store_to_chroma, query_chroma
+from preprocessing import extract_text_PyMuPDF, clean_text
 from embedder import OpenAITextEmbedder
-from vector import store_to_chroma
 
 logger = logging.getLogger(__name__)
 
@@ -223,8 +221,6 @@ class DataProcessor:
     def check_vector_store_status(self) -> Dict[str, Any]:
         """벡터 저장소 상태를 확인합니다."""
         try:
-            from vector import query_chroma
-            
             # 테스트 쿼리로 저장소 상태 확인
             results = query_chroma(
                 query="테스트",

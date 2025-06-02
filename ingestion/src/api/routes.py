@@ -1,10 +1,9 @@
 import os
 from fastapi import APIRouter, HTTPException
 from .models import RetrievalRequest, RetrievalResponse, JobPosting
-from embedder import OpenAITextEmbedder
-from vector import query_chroma
+from services import OpenAITextEmbedder, DataProcessor
+from storage import query_chroma
 from util.logging import log_api_call
-from data_processor import DataProcessor
 from typing import Dict, Any
 
 # 임베딩 모델 초기화
