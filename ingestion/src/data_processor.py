@@ -40,8 +40,19 @@ class DataProcessor:
             logger.info("📊 S3에서 JSON 파일 로드 중...")
             json_data = self.s3_loader.load_json_files()
             
-            # 3. PDF 텍스트 추출 및 처리
-            logger.info("🔍 PDF 텍스트 추출 및 처리 중...")
+            # 3. JSON 데이터를 딕셔너리로 변환 (파일명 기준 매칭용)
+            logger.info("📊 JSON 데이터 인덱싱 중...")
+            json_dict = {}
+            for item in json_data:
+                if isinstance(item, dict) and 'rec_idx' in item:
+                    # JSON 파일명에서 rec_idx 추출하여 키로 사용
+                    rec_idx = item['rec_idx']
+                    json_dict[rec_idx] = item
+            
+            logger.info(f"📋 {len(json_dict)}개의 JSON 레코드 인덱싱 완료")
+
+            # 4. PDF 텍스트 추출 및 JSON 메타데이터 매칭
+            logger.info("🔍 PDF 텍스트 추출 및 JSON 메타데이터 매칭 중...")
             pdf_documents = []
             pdf_metadatas = []
             
@@ -53,86 +64,61 @@ class DataProcessor:
                     # 텍스트 정리
                     clean_text_result = clean_text(raw_text)
                     
-                    # 전체 문서를 하나의 청크로 처리 (chunking 제거)
                     if clean_text_result.strip():
-                        pdf_documents.append(clean_text_result)
-                        pdf_metadatas.append({
-                            "source": "pdf",
-                            "filename": pdf_path.name,
-                            "document_type": "recruitment_pdf"
-                        })
+                        # PDF 파일명에서 rec_idx 추출 (예: 20250417_49421173.pdf -> 49421173)
+                        pdf_filename = pdf_path.stem  # 확장자 제거
+                        
+                        # 파일명에서 rec_idx 추출 (마지막 '_' 이후 부분)
+                        if '_' in pdf_filename:
+                            rec_idx = pdf_filename.split('_')[-1]
+                        else:
+                            rec_idx = pdf_filename
+                        
+                        # 해당 JSON 메타데이터 찾기
+                        json_metadata = json_dict.get(rec_idx)
+                        
+                        if json_metadata:
+                            # JSON 메타데이터와 함께 저장
+                            metadata = {
+                                "source": "pdf",
+                                "filename": pdf_path.name,
+                                "document_type": "recruitment_pdf_with_json",
+                                "rec_idx": rec_idx
+                            }
+                            
+                            # JSON의 모든 필드를 메타데이터에 추가
+                            for key, value in json_metadata.items():
+                                if isinstance(value, (str, int, float, bool)):
+                                    metadata[key] = str(value)
+                            
+                            pdf_documents.append(clean_text_result)
+                            pdf_metadatas.append(metadata)
+                            
+                            logger.info(f"✅ PDF {pdf_path.name} + JSON 메타데이터 매칭 완료: {json_metadata.get('post_title', 'Unknown')}")
+                        else:
+                            # 매칭되는 JSON이 없는 경우 PDF만 저장
+                            metadata = {
+                                "source": "pdf",
+                                "filename": pdf_path.name,
+                                "document_type": "recruitment_pdf_only",
+                                "rec_idx": rec_idx,
+                                "post_title": "제목 없음",
+                                "deadline": "미정",
+                                "detail_url": ""
+                            }
+                            
+                            pdf_documents.append(clean_text_result)
+                            pdf_metadatas.append(metadata)
+                            
+                            logger.warning(f"⚠️ PDF {pdf_path.name}에 매칭되는 JSON 없음 (rec_idx: {rec_idx})")
                         
                 except Exception as e:
                     logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
                     continue
-            
-            # 4. JSON 데이터 처리
-            logger.info("📋 JSON 데이터 처리 중...")
-            json_documents = []
-            json_metadatas = []
-            
-            for idx, item in enumerate(json_data):
-                try:
-                    # JSON 데이터에서 텍스트 필드들 결합
-                    text_fields = []
-                    
-                    # 주요 필드들 수집 (실제 JSON 구조에 맞게 조정 필요)
-                    if isinstance(item, dict):
-                        # 제목
-                        if 'title' in item or 'post_title' in item:
-                            title = item.get('title') or item.get('post_title', '')
-                            text_fields.append(f"제목: {title}")
-                        
-                        # 내용
-                        if 'content' in item or 'description' in item:
-                            content = item.get('content') or item.get('description', '')
-                            text_fields.append(f"내용: {content}")
-                        
-                        # 회사명
-                        if 'company' in item or 'company_name' in item:
-                            company = item.get('company') or item.get('company_name', '')
-                            text_fields.append(f"회사: {company}")
-                        
-                        # 기타 필드들 (키워드, 요구사항 등)
-                        for key, value in item.items():
-                            if key not in ['title', 'post_title', 'content', 'description', 'company', 'company_name']:
-                                if isinstance(value, str) and value.strip():
-                                    text_fields.append(f"{key}: {value}")
-                    
-                    if text_fields:
-                        document_text = "\n".join(text_fields)
-                        
-                        # 텍스트 정리
-                        clean_text_result = clean_text(document_text)
-                        
-                        # 전체 문서를 하나의 청크로 처리 (chunking 제거)
-                        if clean_text_result.strip():
-                            json_documents.append(clean_text_result)
-                            
-                            # 메타데이터 생성
-                            metadata = {
-                                "source": "json",
-                                "document_type": "recruitment_json",
-                                "json_index": idx
-                            }
-                            
-                            # 원본 메타데이터 추가
-                            if isinstance(item, dict):
-                                logger.info(f"🔍 JSON 아이템 {idx} 필드들: {list(item.keys())}")
-                                for key, value in item.items():
-                                    if isinstance(value, (str, int, float, bool)) and key not in ['content', 'description']:
-                                        metadata[key] = str(value)
-                                logger.info(f"📝 생성된 메타데이터 샘플: {metadata}")
-                            
-                            json_metadatas.append(metadata)
-                            
-                except Exception as e:
-                    logger.error(f"❌ JSON 항목 처리 실패 (index: {idx}): {e}")
-                    continue
-            
-            # 5. 벡터 데이터베이스에 저장
-            all_documents = pdf_documents + json_documents
-            all_metadatas = pdf_metadatas + json_metadatas
+
+            # 5. 벡터 데이터베이스에 저장 (PDF + JSON 매칭 데이터만)
+            all_documents = pdf_documents  # JSON 별개 문서 제거
+            all_metadatas = pdf_metadatas  # JSON 별개 메타데이터 제거
             
             if all_documents:
                 logger.info(f"💾 벡터 데이터베이스에 {len(all_documents)}개 문서 저장 중...")
@@ -208,7 +194,7 @@ class DataProcessor:
                 "pdf_files_processed": len(pdf_paths),
                 "json_records_processed": len(json_data),
                 "total_pdf_documents": len(pdf_documents),
-                "total_json_documents": len(json_documents),
+                "total_json_documents": 0,
                 "total_documents_stored": len(all_documents)
             }
             
