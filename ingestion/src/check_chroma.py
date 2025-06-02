@@ -1,8 +1,12 @@
 import chromadb
+import os
 from pprint import pprint
 
-# ChromaDB 저장 경로
-PERSIST_DIR = "./data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+# ChromaDB 저장 경로 - 환경변수 사용
+PERSIST_DIR = os.getenv(
+    "VECTOR_STORE_PATH", 
+    "/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+)
 
 
 def check_collection():

@@ -5,6 +5,7 @@ import os
 from typing import List, Dict, Any
 from pathlib import Path
 import logging
+import tempfile
 
 from s3_loader import S3DataLoader
 from loader import extract_text_PyMuPDF
@@ -19,7 +20,11 @@ class DataProcessor:
         """데이터 처리기 초기화"""
         self.s3_loader = S3DataLoader()
         self.embedder = OpenAITextEmbedder()
-        self.persist_dir = "./data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+        # 환경변수를 통한 벡터 저장소 경로 설정
+        self.persist_dir = os.getenv(
+            "VECTOR_STORE_PATH", 
+            "/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+        )
         
     def process_s3_data(self) -> Dict[str, Any]:
         """

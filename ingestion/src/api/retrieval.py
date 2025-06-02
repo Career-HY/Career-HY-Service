@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, HTTPException
 from .models import RetrievalRequest, RetrievalResponse, JobPosting
 from embedder import OpenAITextEmbedder
@@ -9,8 +10,11 @@ from typing import Dict, Any
 # 임베딩 모델 초기화
 embedder = OpenAITextEmbedder()
 
-# ChromaDB 저장 경로
-PERSIST_DIR = "./data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+# ChromaDB 저장 경로 - 환경변수 사용 (Docker 환경 고려)
+PERSIST_DIR = os.getenv(
+    "VECTOR_STORE_PATH", 
+    "/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma"
+)
 
 # 데이터 프로세서 초기화
 data_processor = DataProcessor()
@@ -88,9 +92,12 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
         if results and results.get("documents"):
             for doc, metadata in zip(results["documents"][0], results["metadatas"][0]):
                 job_posting = JobPosting(
+                    rec_idx=metadata.get("rec_idx"),
                     title=metadata.get("post_title", "제목 없음"),
                     url=metadata.get("detail_url", ""),
                     deadline=metadata.get("deadline", "미정"),
+                    start_date=metadata.get("start_date"),
+                    crawling_time=metadata.get("crawling_time"),
                     content=doc,
                 )
                 job_postings.append(job_posting)

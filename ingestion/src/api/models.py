@@ -30,9 +30,12 @@ class CourseInfo(BaseModel):
 class JobPosting(BaseModel):
     """채용공고 정보"""
 
+    rec_idx: Optional[str] = None           # 공고 ID
     title: str
     url: str
     deadline: Optional[str] = None
+    start_date: Optional[str] = None        # 모집 시작일
+    crawling_time: Optional[str] = None     # 크롤링 시간
     content: str
 
 
