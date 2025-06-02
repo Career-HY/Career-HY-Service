@@ -3,9 +3,11 @@ services:
     build: ./ingestion
     env_file:
       - ./.env               
+    environment:
+      - VECTOR_STORE_PATH=/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma
     volumes:
       - ./ingestion/dataset:/app/dataset
-      - ./ingestion/data/vector_store:/app/data/vector_store
+      - ./ingestion/data:/app/data
     ports:
       - "5002:5002"
 
@@ -39,4 +41,8 @@ services:
   #   # env_file:
   #   #   - ./.env
   #   #   - ./llm-service/.env
+
+# Named Volume 사용 시 uncomment
+# volumes:
+#   vector_data:
 
