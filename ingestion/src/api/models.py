@@ -52,3 +52,19 @@ class RetrievalResponse(BaseModel):
     """검색 결과 응답"""
 
     results: List[JobPosting]
+
+
+class VectorSearchRequest(BaseModel):
+    """벡터 검색 테스트 요청"""
+    
+    query: str
+    top_k: Optional[int] = 5  # 기본값 5개
+
+
+class VectorSearchResponse(BaseModel):
+    """벡터 검색 테스트 응답"""
+    
+    query: str
+    total_found: int
+    results: List[JobPosting]
+    search_time_ms: Optional[float] = None  # 검색 소요 시간 (밀리초)

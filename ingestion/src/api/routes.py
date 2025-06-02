@@ -1,6 +1,7 @@
 import os
+import time
 from fastapi import APIRouter, HTTPException
-from .models import RetrievalRequest, RetrievalResponse, JobPosting
+from .models import RetrievalRequest, RetrievalResponse, JobPosting, VectorSearchRequest, VectorSearchResponse
 from services import OpenAITextEmbedder, DataProcessor, ProfileQueryBuilder
 from storage import query_chroma
 from util.logging import log_api_call
@@ -110,24 +111,65 @@ async def process_s3_data() -> Dict[str, Any]:
         )
 
 
-@router.get("/vector-store-status")
+@router.post("/vector-search-test", response_model=VectorSearchResponse)
 @log_api_call
-async def get_vector_store_status() -> Dict[str, Any]:
+async def vector_search_test(request: VectorSearchRequest) -> VectorSearchResponse:
     """
-    벡터 저장소 상태를 확인하는 API 엔드포인트
+    벡터 검색 테스트 API 엔드포인트
+    
+    Parameters:
+    - request: VectorSearchRequest
+        - query: 검색할 쿼리 텍스트
+        - top_k: 반환할 문서 개수 (기본값: 5)
     
     Returns:
-    - Dict[str, Any]: 벡터 저장소 상태 정보
+    - VectorSearchResponse: 검색 결과와 메타데이터
     """
     try:
-        status = data_processor.check_vector_store_status()
-        return {
-            "message": "벡터 저장소 상태 조회 완료",
-            "status": status
-        }
+        # 검색 시간 측정 시작
+        start_time = time.time()
         
+        # ChromaDB에서 벡터 검색
+        results = query_chroma(
+            query=request.query,
+            embedder=embedder,
+            persist_dir=PERSIST_DIR,
+            top_k=request.top_k,
+        )
+        
+        # 검색 시간 계산
+        search_time_ms = (time.time() - start_time) * 1000
+        
+        # 검색 결과 포맷팅
+        job_postings = []
+        total_found = 0
+        
+        if results and results.get("documents"):
+            documents = results["documents"][0] if results["documents"] else []
+            metadatas = results["metadatas"][0] if results["metadatas"] else []
+            total_found = len(documents)
+            
+            for doc, metadata in zip(documents, metadatas):
+                job_posting = JobPosting(
+                    rec_idx=metadata.get("rec_idx"),
+                    title=metadata.get("post_title", "제목 없음"),
+                    url=metadata.get("detail_url", ""),
+                    deadline=metadata.get("deadline", "미정"),
+                    start_date=metadata.get("start_date"),
+                    crawling_time=metadata.get("crawling_time"),
+                    content=doc,
+                )
+                job_postings.append(job_posting)
+
+        return VectorSearchResponse(
+            query=request.query,
+            total_found=total_found,
+            results=job_postings,
+            search_time_ms=round(search_time_ms, 2)
+        )
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"벡터 저장소 상태 확인 중 오류 발생: {str(e)}"
+            detail=f"벡터 검색 테스트 중 오류 발생: {str(e)}",
         )
