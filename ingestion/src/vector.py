@@ -37,13 +37,12 @@ def store_to_chroma(
 
     # 각 문서마다 메타데이터 추가
     for text, emb, doc_id, metadata in zip(texts, embeddings, ids, metadatas):
-        # 기본 메타데이터 설정
-        doc_metadata = {
-            "source": doc_id,
-            "post_title": metadata.get("post_title", "제목 없음"),
-            "url": metadata.get("url", ""),
-            "deadline": metadata.get("deadline", "미정"),
-        }
+        # 원본 메타데이터를 그대로 보존
+        doc_metadata = metadata.copy()  # 원본 메타데이터 복사
+        
+        # 필수 필드가 없는 경우에만 기본값 설정
+        if "source" not in doc_metadata:
+            doc_metadata["source"] = doc_id
 
         collection.add(
             documents=[text], embeddings=[emb], ids=[doc_id], metadatas=[doc_metadata]
