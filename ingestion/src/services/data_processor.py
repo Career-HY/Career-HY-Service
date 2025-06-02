@@ -8,7 +8,7 @@ import logging
 
 from storage import S3DataLoader, store_to_chroma, query_chroma
 from preprocessing import extract_text_PyMuPDF, clean_text
-from embedder import OpenAITextEmbedder
+from .embedder import OpenAITextEmbedder
 
 logger = logging.getLogger(__name__)
 
