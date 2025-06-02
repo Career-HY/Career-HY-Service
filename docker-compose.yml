@@ -6,7 +6,6 @@ services:
     environment:
       - VECTOR_STORE_PATH=/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma
     volumes:
-      - ./ingestion/dataset:/app/dataset
       - ./ingestion/data:/app/data
     ports:
       - "5002:5002"

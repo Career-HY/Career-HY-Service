@@ -5,7 +5,6 @@ import os
 from typing import List, Dict, Any
 from pathlib import Path
 import logging
-import tempfile
 
 from s3_loader import S3DataLoader
 from loader import extract_text_PyMuPDF
