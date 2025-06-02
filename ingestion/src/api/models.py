@@ -30,9 +30,12 @@ class CourseInfo(BaseModel):
 class JobPosting(BaseModel):
     """채용공고 정보"""
 
+    rec_idx: Optional[str] = None           # 공고 ID
     title: str
     url: str
     deadline: Optional[str] = None
+    start_date: Optional[str] = None        # 모집 시작일
+    crawling_time: Optional[str] = None     # 크롤링 시간
     content: str
 
 
@@ -49,3 +52,19 @@ class RetrievalResponse(BaseModel):
     """검색 결과 응답"""
 
     results: List[JobPosting]
+
+
+class VectorSearchRequest(BaseModel):
+    """벡터 검색 테스트 요청"""
+    
+    query: str
+    top_k: Optional[int] = 5  # 기본값 5개
+
+
+class VectorSearchResponse(BaseModel):
+    """벡터 검색 테스트 응답"""
+    
+    query: str
+    total_found: int
+    results: List[JobPosting]
+    search_time_ms: Optional[float] = None  # 검색 소요 시간 (밀리초)

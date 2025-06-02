@@ -6,6 +6,7 @@ python-dotenv
 
 # PDF → 텍스트
 pypdf
+PyMuPDF
 
 #임베딩 모델 
 # 빌드할 때 GPU 사용 관련해서 문제가 있어서 당장 사용하지 않는 임베딩 모델들 주석처리 하겠습니다.
@@ -36,3 +37,6 @@ tiktoken
 fastapi>=0.68.0
 uvicorn>=0.15.0
 pydantic>=1.8.0
+
+# s3
+boto3
