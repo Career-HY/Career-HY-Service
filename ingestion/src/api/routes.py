@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException
 from .models import RetrievalRequest, RetrievalResponse, JobPosting
-from services import OpenAITextEmbedder, DataProcessor
+from services import OpenAITextEmbedder, DataProcessor, ProfileQueryBuilder
 from storage import query_chroma
 from util.logging import log_api_call
 from typing import Dict, Any
@@ -19,38 +19,6 @@ PERSIST_DIR = os.getenv(
 data_processor = DataProcessor()
 
 router = APIRouter()
-
-
-def create_profile_query(
-    major: str, catalogs: list, interest_job: list, certification: list
-) -> str:
-    """사용자 프로필 기반 검색 쿼리 생성"""
-    query_parts = []
-
-    # 전공 정보 추가
-    if major:
-        query_parts.append(f"전공: {major}")
-
-    # 관심 직무 추가
-    if interest_job:
-        query_parts.append(f"관심 직무: {', '.join(interest_job)}")
-
-    # 자격증 정보 추가
-    if certification:
-        query_parts.append(f"자격증: {', '.join(certification)}")
-
-    # 강의 정보에서 핵심 키워드 추출
-    course_keywords = set()
-    for course in catalogs:
-        # 강의명과 핵심역량에서 키워드 추출
-        course_keywords.update(course.course_name.split())
-        course_keywords.update(course.core_competency.split())
-
-    if course_keywords:
-        query_parts.append(f"관련 키워드: {' '.join(course_keywords)}")
-    
-
-    return " ".join(query_parts)
 
 
 @router.post("/retrieval", response_model=RetrievalResponse)
@@ -71,7 +39,7 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
     """
     try:
         # 1. 사용자 프로필 기반 검색 쿼리 생성
-        profile_query = create_profile_query(
+        profile_query = ProfileQueryBuilder.create_profile_query(
             major=request.major,
             catalogs=request.catalogs,
             interest_job=request.interest_job,

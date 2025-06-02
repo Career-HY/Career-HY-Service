@@ -3,5 +3,6 @@
 """
 from .embedder import OpenAITextEmbedder
 from .data_processor import DataProcessor
+from .query_builder import ProfileQueryBuilder
 
-__all__ = ["OpenAITextEmbedder", "DataProcessor"] 
+__all__ = ["OpenAITextEmbedder", "DataProcessor", "ProfileQueryBuilder"] 
