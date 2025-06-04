@@ -5,10 +5,7 @@
  * Document retrieval and processing API for Career-Hi
  * OpenAPI spec version: 1.0.0
  */
-import {
-  useMutation,
-  useQuery
-} from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   DataTag,
   DefinedInitialDataOptions,
@@ -21,8 +18,8 @@ import type {
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query';
+  UseQueryResult,
+} from '@tanstack/react-query'
 
 import type {
   HTTPValidationError,
@@ -30,13 +27,10 @@ import type {
   RetrievalRequest,
   RetrievalResponse,
   VectorSearchRequest,
-  VectorSearchResponse
-} from '.././model';
+  VectorSearchResponse,
+} from '.././model'
 
-import { customInstance } from '../../mutator';
-
-
-
+import { customInstance } from '../../mutator'
 
 /**
  * 사용자 프로필 기반 문서 검색 API 엔드포인트
@@ -53,133 +47,172 @@ Returns:
  * @summary Retrieve Documents
  */
 export const retrieveDocumentsRetrievalPost = (
-    retrievalRequest: RetrievalRequest,
- signal?: AbortSignal
+  retrievalRequest: RetrievalRequest,
+  signal?: AbortSignal
 ) => {
-      
-      
-      return customInstance<RetrievalResponse>(
-      {url: `/retrieval`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: retrievalRequest, signal
-    },
-      );
-    }
-  
+  return customInstance<RetrievalResponse>({
+    url: `/retrieval`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: retrievalRequest,
+    signal,
+  })
+}
 
+export const getRetrieveDocumentsRetrievalPostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
+    TError,
+    { data: RetrievalRequest },
+    TContext
+  >
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
+  TError,
+  { data: RetrievalRequest },
+  TContext
+> => {
+  const mutationKey = ['retrieveDocumentsRetrievalPost']
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      'mutationKey' in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } }
 
-export const getRetrieveDocumentsRetrievalPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>, TError,{data: RetrievalRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>, TError,{data: RetrievalRequest}, TContext> => {
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
+    { data: RetrievalRequest }
+  > = (props) => {
+    const { data } = props ?? {}
 
-const mutationKey = ['retrieveDocumentsRetrievalPost'];
-const {mutation: mutationOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }};
+    return retrieveDocumentsRetrievalPost(data)
+  }
 
-      
+  return { mutationFn, ...mutationOptions }
+}
 
+export type RetrieveDocumentsRetrievalPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>
+>
+export type RetrieveDocumentsRetrievalPostMutationBody = RetrievalRequest
+export type RetrieveDocumentsRetrievalPostMutationError = HTTPValidationError
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>, {data: RetrievalRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  retrieveDocumentsRetrievalPost(data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RetrieveDocumentsRetrievalPostMutationResult = NonNullable<Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>>
-    export type RetrieveDocumentsRetrievalPostMutationBody = RetrievalRequest
-    export type RetrieveDocumentsRetrievalPostMutationError = HTTPValidationError
-
-    /**
+/**
  * @summary Retrieve Documents
  */
-export const useRetrieveDocumentsRetrievalPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>, TError,{data: RetrievalRequest}, TContext>, }
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
-        TError,
-        {data: RetrievalRequest},
-        TContext
-      > => {
+export const useRetrieveDocumentsRetrievalPost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
+      TError,
+      { data: RetrievalRequest },
+      TContext
+    >
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof retrieveDocumentsRetrievalPost>>,
+  TError,
+  { data: RetrievalRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getRetrieveDocumentsRetrievalPostMutationOptions(options)
 
-      const mutationOptions = getRetrieveDocumentsRetrievalPostMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    /**
+  return useMutation(mutationOptions, queryClient)
+}
+/**
  * S3에서 초기 데이터셋을 로드하고 벡터 데이터베이스에 저장하는 API 엔드포인트
 
 Returns:
 - Dict[str, Any]: 처리 결과 요약
  * @summary Process S3 Data
  */
-export const processS3DataProcessS3DataPost = (
-    
- signal?: AbortSignal
-) => {
-      
-      
-      return customInstance<ProcessS3DataProcessS3DataPost200>(
-      {url: `/process-s3-data`, method: 'POST', signal
-    },
-      );
-    }
-  
+export const processS3DataProcessS3DataPost = (signal?: AbortSignal) => {
+  return customInstance<ProcessS3DataProcessS3DataPost200>({
+    url: `/process-s3-data`,
+    method: 'POST',
+    signal,
+  })
+}
 
+export const getProcessS3DataProcessS3DataPostMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
+    TError,
+    void,
+    TContext
+  >
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ['processS3DataProcessS3DataPost']
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      'mutationKey' in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } }
 
-export const getProcessS3DataProcessS3DataPostMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>, TError,void, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>, TError,void, TContext> => {
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
+    void
+  > = () => {
+    return processS3DataProcessS3DataPost()
+  }
 
-const mutationKey = ['processS3DataProcessS3DataPost'];
-const {mutation: mutationOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }};
+  return { mutationFn, ...mutationOptions }
+}
 
-      
+export type ProcessS3DataProcessS3DataPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>
+>
 
+export type ProcessS3DataProcessS3DataPostMutationError = unknown
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>, void> = () => {
-          
-
-          return  processS3DataProcessS3DataPost()
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type ProcessS3DataProcessS3DataPostMutationResult = NonNullable<Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>>
-    
-    export type ProcessS3DataProcessS3DataPostMutationError = unknown
-
-    /**
+/**
  * @summary Process S3 Data
  */
-export const useProcessS3DataProcessS3DataPost = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>, TError,void, TContext>, }
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
-        TError,
-        void,
-        TContext
-      > => {
+export const useProcessS3DataProcessS3DataPost = <
+  TError = unknown,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
+      TError,
+      void,
+      TContext
+    >
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof processS3DataProcessS3DataPost>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions =
+    getProcessS3DataProcessS3DataPostMutationOptions(options)
 
-      const mutationOptions = getProcessS3DataProcessS3DataPostMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    /**
+  return useMutation(mutationOptions, queryClient)
+}
+/**
  * 벡터 검색 테스트 API 엔드포인트
 
 Parameters:
@@ -192,150 +225,209 @@ Returns:
  * @summary Vector Search Test
  */
 export const vectorSearchTestVectorSearchTestPost = (
-    vectorSearchRequest: VectorSearchRequest,
- signal?: AbortSignal
+  vectorSearchRequest: VectorSearchRequest,
+  signal?: AbortSignal
 ) => {
-      
-      
-      return customInstance<VectorSearchResponse>(
-      {url: `/vector-search-test`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: vectorSearchRequest, signal
-    },
-      );
-    }
-  
-
-
-export const getVectorSearchTestVectorSearchTestPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>, TError,{data: VectorSearchRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>, TError,{data: VectorSearchRequest}, TContext> => {
-
-const mutationKey = ['vectorSearchTestVectorSearchTestPost'];
-const {mutation: mutationOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>, {data: VectorSearchRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  vectorSearchTestVectorSearchTestPost(data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type VectorSearchTestVectorSearchTestPostMutationResult = NonNullable<Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>>
-    export type VectorSearchTestVectorSearchTestPostMutationBody = VectorSearchRequest
-    export type VectorSearchTestVectorSearchTestPostMutationError = HTTPValidationError
-
-    /**
- * @summary Vector Search Test
- */
-export const useVectorSearchTestVectorSearchTestPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>, TError,{data: VectorSearchRequest}, TContext>, }
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
-        TError,
-        {data: VectorSearchRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getVectorSearchTestVectorSearchTestPostMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    /**
- * @summary Root
- */
-export const rootGet = (
-    
- signal?: AbortSignal
-) => {
-      
-      
-      return customInstance<unknown>(
-      {url: `/`, method: 'GET', signal
-    },
-      );
-    }
-  
-
-export const getRootGetQueryKey = () => {
-    return [`/`] as const;
-    }
-
-    
-export const getRootGetQueryOptions = <TData = Awaited<ReturnType<typeof rootGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getRootGetQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof rootGet>>> = ({ signal }) => rootGet(signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+  return customInstance<VectorSearchResponse>({
+    url: `/vector-search-test`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: vectorSearchRequest,
+    signal,
+  })
 }
 
-export type RootGetQueryResult = NonNullable<Awaited<ReturnType<typeof rootGet>>>
+export const getVectorSearchTestVectorSearchTestPostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
+    TError,
+    { data: VectorSearchRequest },
+    TContext
+  >
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
+  TError,
+  { data: VectorSearchRequest },
+  TContext
+> => {
+  const mutationKey = ['vectorSearchTestVectorSearchTestPost']
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      'mutationKey' in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
+    { data: VectorSearchRequest }
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return vectorSearchTestVectorSearchTestPost(data)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VectorSearchTestVectorSearchTestPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>
+>
+export type VectorSearchTestVectorSearchTestPostMutationBody =
+  VectorSearchRequest
+export type VectorSearchTestVectorSearchTestPostMutationError =
+  HTTPValidationError
+
+/**
+ * @summary Vector Search Test
+ */
+export const useVectorSearchTestVectorSearchTestPost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
+      TError,
+      { data: VectorSearchRequest },
+      TContext
+    >
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof vectorSearchTestVectorSearchTestPost>>,
+  TError,
+  { data: VectorSearchRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getVectorSearchTestVectorSearchTestPostMutationOptions(options)
+
+  return useMutation(mutationOptions, queryClient)
+}
+/**
+ * @summary Root
+ */
+export const rootGet = (signal?: AbortSignal) => {
+  return customInstance<unknown>({ url: `/`, method: 'GET', signal })
+}
+
+export const getRootGetQueryKey = () => {
+  return [`/`] as const
+}
+
+export const getRootGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+  >
+}) => {
+  const { query: queryOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getRootGetQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof rootGet>>> = ({
+    signal,
+  }) => rootGet(signal)
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof rootGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RootGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof rootGet>>
+>
 export type RootGetQueryError = unknown
 
-
-export function useRootGet<TData = Awaited<ReturnType<typeof rootGet>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>> & Pick<
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    > &
+      Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof rootGet>>,
           TError,
           Awaited<ReturnType<typeof rootGet>>
-        > , 'initialData'
-      >, }
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useRootGet<TData = Awaited<ReturnType<typeof rootGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>> & Pick<
+        >,
+        'initialData'
+      >
+  },
+  queryClient?: QueryClient
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    > &
+      Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof rootGet>>,
           TError,
           Awaited<ReturnType<typeof rootGet>>
-        > , 'initialData'
-      >, }
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useRootGet<TData = Awaited<ReturnType<typeof rootGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>>, }
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+        >,
+        'initialData'
+      >
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    >
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
 /**
  * @summary Root
  */
 
-export function useRootGet<TData = Awaited<ReturnType<typeof rootGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
+export function useRootGet<
+  TData = Awaited<ReturnType<typeof rootGet>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
+    >
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
   const queryOptions = getRootGetQueryOptions(options)
 
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
 
-  query.queryKey = queryOptions.queryKey ;
+  query.queryKey = queryOptions.queryKey
 
-  return query;
+  return query
 }
-
-
-
