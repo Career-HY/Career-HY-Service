@@ -38,15 +38,15 @@ export const api = ky.create({
 export const customInstance = <T>(config: {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
-  params?: any
-  data?: any
-  headers?: any
+  params?: Record<string, string | number | boolean>
+  data?: unknown
+  headers?: Record<string, string>
   signal?: AbortSignal
 }): Promise<T> => {
   const { url, method, params, data, headers, signal } = config
 
   return api(url, {
-    method: method.toLowerCase() as any,
+    method: method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch',
     searchParams: params,
     json: data,
     headers,
@@ -54,4 +54,4 @@ export const customInstance = <T>(config: {
   }).json<T>()
 }
 
-export default customInstance 
+export default customInstance
