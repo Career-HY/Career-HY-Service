@@ -2,7 +2,7 @@ import ky from 'ky'
 
 // API 베이스 인스턴스 생성
 export const api = ky.create({
-  prefixUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  prefixUrl: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,14 +41,16 @@ export const customInstance = <T>(config: {
   params?: any
   data?: any
   headers?: any
+  signal?: AbortSignal
 }): Promise<T> => {
-  const { url, method, params, data, headers } = config
+  const { url, method, params, data, headers, signal } = config
 
   return api(url, {
     method: method.toLowerCase() as any,
     searchParams: params,
     json: data,
     headers,
+    signal,
   }).json<T>()
 }
 
