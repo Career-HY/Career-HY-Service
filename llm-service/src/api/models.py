@@ -1,0 +1,103 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict
+
+
+class CourseInfo(BaseModel):
+    course_name: str
+    core_competency: str
+    course_overview: str
+    course_objectives: str
+    week1_plan: str
+    week2_plan: str
+    week3_plan: str
+    week4_plan: str
+    week5_plan: str
+    week6_plan: str
+    week7_plan: str
+    week8_plan: str
+    week9_plan: str
+    week10_plan: str
+    week11_plan: str
+    week12_plan: str
+    week13_plan: str
+    week14_plan: str
+    week15_plan: str
+    week16_plan: str
+
+
+class JobPosting(BaseModel):
+    """채용공고 정보"""
+
+    rec_idx: Optional[str] = None  # 공고 ID
+    title: str
+    url: str
+    deadline: Optional[str] = None
+    start_date: Optional[str] = None  # 모집 시작일
+    crawling_time: Optional[str] = None  # 크롤링 시간
+    content: str
+
+
+class RetrievalRequest(BaseModel):
+    """사용자 프로필 기반 검색 요청"""
+
+    major: str
+    catalogs: List[CourseInfo]
+    interest_job: List[str]
+    certification: List[str]
+
+
+class LLMRequest(BaseModel):
+    """LLM 서비스 요청"""
+
+    query: str = Field(..., description="사용자 질문")
+    profile: RetrievalRequest = Field(..., description="사용자 프로필")
+
+
+class RelevantDocument(BaseModel):
+    """관련 문서 정보"""
+
+    title: str
+    url: str
+    content: str
+    relevance_score: float
+
+
+class TokenUsage(BaseModel):
+    """토큰 사용량 정보"""
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+class LLMMetadata(BaseModel):
+    """LLM 응답 메타데이터"""
+
+    model: str
+    tokens: TokenUsage
+    document_count: int
+    total_cost: float
+    run_id: Optional[str] = None
+
+
+class RecommendedJob(BaseModel):
+    """추천 채용 공고"""
+
+    title: str
+    company: str
+    url: str
+    recommendation_reason: str
+    relevance_score: float
+
+
+class LLMResponse(BaseModel):
+    """LLM 서비스 응답"""
+
+    content: str
+    recommended_jobs: List[RecommendedJob] = Field(
+        ..., description="추천된 채용 공고 목록"
+    )
+    metadata: LLMMetadata = Field(
+        ..., description="응답 생성 관련 메타데이터 (토큰 수, 모델명 등)"
+    )
+    relevant_documents: List[JobPosting] = Field(..., description="참고한 문서들")

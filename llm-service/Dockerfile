@@ -7,10 +7,10 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 소스 코드 복사
-COPY src/ .
+COPY src/ ./src/
 
 # 포트 노출
 EXPOSE 5003
 
 # 애플리케이션 실행
-CMD ["uvicorn", "llm_service:app", "--host", "0.0.0.0", "--port", "5003", "--reload"] 
+CMD ["uvicorn", "src.llm_service:app", "--host", "0.0.0.0", "--port", "5003", "--reload"] 

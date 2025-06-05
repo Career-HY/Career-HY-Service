@@ -1,24 +1,32 @@
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
-
-from config.config import settings
+from fastapi.middleware.cors import CORSMiddleware
+from src.api.routes import router
+from src.config.config import settings
 
 app = FastAPI(
-    title=settings.APP_NAME, 
-    debug=settings.DEBUG,
+    title="Career-Hi LLM Service",
     description="Career-Hi LLM Service API",
+    version="1.0.0",
 )
 
-# CORS 미들웨어 추가
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 실제 운영에서는 특정 도메인으로 제한
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 라우터 등록
+app.include_router(router)
+
+
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi LLM Service!! 5/31 21:30 test"}
-
+    return {
+        "service": "Career-Hi LLM Service",
+        "status": "running",
+        "version": "1.0.0",
+        "model": settings.OPENAI_MODEL,
+    }

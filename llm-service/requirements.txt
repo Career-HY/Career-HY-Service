@@ -24,7 +24,12 @@ requests
 openai
 
 # langchain
+langchain
 langchain-openai
+langchain-community
+
+# langsmith 모니터링
+langsmith
 
 # JSON 처리
 ujson
