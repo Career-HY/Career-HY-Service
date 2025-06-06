@@ -24,3 +24,6 @@ pymysql
 
 # itsdangerous - 쿠키 서명 및 검증
 itsdangerous
+
+# HTTP 클라이언트 (LLM 서비스 통신용)
+httpx
