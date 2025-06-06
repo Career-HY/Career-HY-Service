@@ -20,6 +20,22 @@ def get_chatroom(db: Session, chatroom_id: int, member_id: str) -> Optional[Chat
 
 
 @log_db_operation("SELECT")
+def get_chatroom_with_messages(db: Session, chatroom_id: int, member_id: str) -> Optional[Chatroom]:
+    """
+    사용자의 특정 채팅방을 메시지와 함께 조회합니다. (삭제되지 않은 채팅방만)
+    """
+    from sqlalchemy.orm import joinedload
+    
+    return db.query(Chatroom).options(
+        joinedload(Chatroom.messages)
+    ).filter(
+        Chatroom.id == chatroom_id,
+        Chatroom.member_id == member_id,
+        Chatroom.is_deleted == False
+    ).first()
+
+
+@log_db_operation("SELECT")
 def get_chatrooms_by_member(db: Session, member_id: str) -> List[Chatroom]:
     """
     사용자의 모든 채팅방을 조회합니다. (삭제되지 않은 채팅방만)
