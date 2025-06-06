@@ -1,4 +1,4 @@
- # YAML 설정 읽기
+# YAML 설정 읽기
 PyYAML
 
 # .env 파일 환경변수 로드

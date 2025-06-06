@@ -11,12 +11,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # OpenAI API 설정
-    OPENAI_API_KEY: str = ""
+    OPENAI_API_KEY: str
     OPENAI_MODEL: str = "gpt-3.5-turbo"
-
-    # 서버 설정
-    HOST: str = "0.0.0.0"
-    PORT: int = 5003
 
     # Ingestion API 설정
     INGESTION_SERVICE_URL: str
