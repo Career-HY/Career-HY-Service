@@ -3,8 +3,6 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from ..api.models import (
     LLMResponse,
-    LLMMetadata,
-    TokenUsage,
     RecommendedJob,
     JobPosting,
 )
@@ -66,8 +64,12 @@ class LLMPromptingService:
                         reason = reasons[i] if i < len(reasons) else f"{i+1}번째 추천 채용공고"
                         
                         recommended_job = RecommendedJob(
+                            rec_idx=doc.rec_idx,
                             title=doc.title,
                             url=doc.url,
+                            deadline=doc.deadline,
+                            start_date=doc.start_date,
+                            crawling_time=doc.crawling_time,
                             recommendation_reason=reason,
                         )
                         recommended_jobs.append(recommended_job)
@@ -79,8 +81,12 @@ class LLMPromptingService:
             # 파싱 실패 시 상위 3개로 fallback
             for i, doc in enumerate(documents[:3]):
                 recommended_job = RecommendedJob(
+                    rec_idx=doc.rec_idx,
                     title=doc.title,
                     url=doc.url,
+                    deadline=doc.deadline,
+                    start_date=doc.start_date,
+                    crawling_time=doc.crawling_time,
                     recommendation_reason=f"{i+1}번째 추천 - 상위 검색 결과",
                 )
                 recommended_jobs.append(recommended_job)
@@ -134,14 +140,6 @@ class LLMPromptingService:
             # 추천된 채용공고 파싱 (Function Call 결과 직접 사용)
             recommended_jobs = self._extract_recommended_jobs_from_function_call(function_args, documents)
 
-            # 메타데이터 생성 (with_structured_output은 토큰 정보 미제공)
-            metadata = LLMMetadata(
-                model=settings.OPENAI_MODEL,
-                tokens=TokenUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
-                document_count=len(recommended_jobs),
-                total_cost=0.0,
-            )
-
             # Langsmith에 메타데이터 기록
             self.client.create_run(
                 name="job_recommendation",
@@ -149,15 +147,12 @@ class LLMPromptingService:
                 inputs={"query": query, "num_documents": len(documents)},
                 outputs={
                     "recommended_jobs": [job.dict() for job in recommended_jobs],
-                    "token_usage": metadata.tokens.dict(),
                 },
             )
 
             return LLMResponse(
                 content=llm_response,
-                metadata=metadata,
                 recommended_jobs=recommended_jobs,
-                relevant_documents=documents,
             )
 
         except Exception as e:

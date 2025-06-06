@@ -53,37 +53,15 @@ class LLMRequest(BaseModel):
     profile: RetrievalRequest = Field(..., description="사용자 프로필")
 
 
-class RelevantDocument(BaseModel):
-    """관련 문서 정보"""
-
-    title: str
-    url: str
-    content: str
-
-
-class TokenUsage(BaseModel):
-    """토큰 사용량 정보"""
-
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
-
-
-class LLMMetadata(BaseModel):
-    """LLM 응답 메타데이터"""
-
-    model: str
-    tokens: TokenUsage
-    document_count: int
-    total_cost: float
-    run_id: Optional[str] = None
-
-
 class RecommendedJob(BaseModel):
     """추천된 채용공고"""
     
+    rec_idx: Optional[str] = None  
     title: str
     url: str
+    deadline: Optional[str] = None
+    start_date: Optional[str] = None  
+    crawling_time: Optional[str] = None  
     recommendation_reason: str
 
 
@@ -94,7 +72,3 @@ class LLMResponse(BaseModel):
     recommended_jobs: List[RecommendedJob] = Field(
         ..., description="추천된 채용 공고 목록"
     )
-    metadata: LLMMetadata = Field(
-        ..., description="응답 생성 관련 메타데이터 (토큰 수, 모델명 등)"
-    )
-    relevant_documents: List[JobPosting] = Field(..., description="참고한 문서들")
