@@ -145,6 +145,7 @@ class LLMPromptingService:
             # Langsmith에 메타데이터 기록
             self.client.create_run(
                 name="job_recommendation",
+                run_type="llm",
                 inputs={"query": query, "num_documents": len(documents)},
                 outputs={
                     "recommended_jobs": [job.dict() for job in recommended_jobs],
