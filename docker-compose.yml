@@ -1,4 +1,13 @@
 services:
+  backend:
+    build: ./backend
+    env_file:
+      - ./.env
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./backend/src:/app/src
+
   ingestion:
     build: ./ingestion
     env_file:
@@ -9,15 +18,6 @@ services:
       - ./ingestion/data:/app/data
     ports:
       - "5002:5002"
-
-  backend:
-    build: ./backend
-    env_file:
-      - ./.env
-    ports:
-      - "5001:5001"
-    volumes:
-      - ./backend/src:/app/src
 
   llm-service:
     build: ./llm-service
@@ -34,14 +34,3 @@ services:
   #   # env_file:
   #   #   - ./.env
   #   #   - ./crawler/.env
-
-  # llm-service:
-  #   build: ./llm-service
-  #   # env_file:
-  #   #   - ./.env
-  #   #   - ./llm-service/.env
-
-# Named Volume 사용 시 uncomment
-# volumes:
-#   vector_data:
-
