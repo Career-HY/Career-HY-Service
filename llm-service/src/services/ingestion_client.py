@@ -18,18 +18,17 @@ class IngestionClient:
         """Ingestion 서비스에서 관련 문서를 검색합니다."""
         
         async with httpx.AsyncClient() as client:
-            # API 호출 - 올바른 엔드포인트와 요청 형식 사용
+            # Ingestion API 호출
             response = await client.post(
-                f"{self.base_url}/api/v1/retrieval",  # /retrieve → /retrieval로 수정
-                json=profile.dict(),  # profile 래핑 제거, limit 제거
+                f"{self.base_url}/retrieval",
+                json=profile.dict(),
                 timeout=self.timeout,
             )
             response.raise_for_status()
 
-            # 응답 파싱 - 실제 응답 형식에 맞게 수정
+            # 응답 파싱
             response_data = response.json()
-            documents_data = response_data.get("results", [])  # documents → results
-
+            documents_data = response_data.get("results", []) 
             # Dict를 JobPosting 객체로 변환
             documents = []
             for doc_data in documents_data:
