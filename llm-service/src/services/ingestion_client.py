@@ -13,7 +13,7 @@ class IngestionClient:
         self.timeout = settings.INGESTION_REQUEST_TIMEOUT
 
     async def retrieve_documents(
-        self, profile: RetrievalRequest, limit: Optional[int] = None
+        self, profile: RetrievalRequest
     ) -> List[JobPosting]:
         """Ingestion 서비스에서 관련 문서를 검색합니다."""
         

@@ -50,7 +50,7 @@ async def generate_llm_response(request: LLMRequest):
         # Ingestion 서비스에서 관련 문서 검색
         ingestion_client = IngestionClient()
         relevant_docs = await ingestion_client.retrieve_documents(
-            request.profile, limit=10
+            request.profile
         )
 
         # LLM 서비스로 응답 생성

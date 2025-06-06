@@ -1,5 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     PORT: int = 5003
 
     # Ingestion API 설정
-    INGESTION_SERVICE_URL: str = os.getenv("INGESTION_SERVICE_URL")
+    INGESTION_SERVICE_URL: str
     INGESTION_REQUEST_TIMEOUT: float = 30.0  # 초
     MAX_DOCUMENTS: int = 10  # 검색할 최대 문서 수
 
