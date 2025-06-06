@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 from ..api.models import (
     LLMResponse,
     LLMMetadata,
@@ -12,9 +12,25 @@ from ..config.config import settings
 from langsmith import Client
 from langchain.callbacks.tracers import LangChainTracer
 import logging
-import re
 
 logger = logging.getLogger(__name__)
+
+
+# LangChain with_structured_output을 위한 Pydantic 모델
+class JobRecommendationResponse(BaseModel):
+    """채용공고 추천 응답 구조"""
+    recommended_job_indices: List[int] = Field(
+        description="추천하는 채용공고의 번호 (1-10)", 
+        min_items=3, 
+        max_items=3
+    )
+    overall_advice: str = Field(description="전반적인 취업 준비 방향성과 조언")
+    recommendation_reasons: List[str] = Field(
+        description="각 추천 채용공고의 추천 이유", 
+        min_items=3, 
+        max_items=3
+    )
+    practical_tips: str = Field(description="지원 시 도움이 될 수 있는 구체적인 팁")
 
 
 class LLMPromptingService:
@@ -30,36 +46,46 @@ class LLMPromptingService:
         self.client = Client()
         self.tracer = LangChainTracer(project_name="career-hi-rag")
 
-    def _extract_recommended_jobs(
-        self, response_text: str, documents: List[JobPosting]
+    def _extract_recommended_jobs_from_function_call(
+        self, function_args: Dict[str, Any], documents: List[JobPosting]
     ) -> List[RecommendedJob]:
-        """LLM 응답에서 추천된 채용공고를 찾아 RecommendedJob 형태로 반환합니다."""
+        """Function Call 결과에서 추천된 채용공고를 추출합니다."""
         recommended_jobs = []
+        
+        try:
+            # Function Call에서 추천 인덱스와 이유 추출
+            indices = function_args.get("recommended_job_indices", [])
+            reasons = function_args.get("recommendation_reasons", [])
+            
+            # RecommendedJob 객체 생성
+            for i, idx in enumerate(indices[:3]):  # 최대 3개
+                try:
+                    doc_idx = int(idx) - 1  # 1-based를 0-based로 변환
+                    if 0 <= doc_idx < len(documents):
+                        doc = documents[doc_idx]
+                        reason = reasons[i] if i < len(reasons) else f"{i+1}번째 추천 채용공고"
+                        
+                        recommended_job = RecommendedJob(
+                            title=doc.title,
+                            url=doc.url,
+                            recommendation_reason=reason,
+                        )
+                        recommended_jobs.append(recommended_job)
+                except (ValueError, IndexError):
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Function Call 결과 파싱 실패, fallback 사용: {e}")
+            # 파싱 실패 시 상위 3개로 fallback
+            for i, doc in enumerate(documents[:3]):
+                recommended_job = RecommendedJob(
+                    title=doc.title,
+                    url=doc.url,
+                    recommendation_reason=f"{i+1}번째 추천 - 상위 검색 결과",
+                )
+                recommended_jobs.append(recommended_job)
 
-        # 정규식으로 추천된 채용공고의 제목과 회사명 추출
-        pattern = r"""(\d)\. [^제]*제목: (.*?)\n회사명: (.*?)\n"""
-        matches = re.finditer(pattern, response_text, re.DOTALL)
-
-        for match in matches:
-            rank = int(match.group(1))
-            title = match.group(2).strip()
-            company = match.group(3).strip()
-
-            # 원본 문서에서 일치하는 문서 찾기
-            for doc in documents:
-                if doc.title.strip() == title:
-                    # 원본 문서의 메타데이터를 RecommendedJob 형식으로 변환
-                    recommended_job = RecommendedJob(
-                        title=doc.title,
-                        company=company,
-                        url=doc.url,
-                        recommendation_reason="",  # 나중에 LLM 응답에서 추출
-                        relevance_score=1.0,  # 기본값
-                    )
-                    recommended_jobs.append(recommended_job)
-                    break
-
-        return recommended_jobs[:3]  # 최대 3개만 반환
+        return recommended_jobs
 
     async def generate_response(
         self, query: str, documents: List[JobPosting]
@@ -68,58 +94,47 @@ class LLMPromptingService:
         try:
             # 문서 포맷팅
             doc_texts = [
-                f"문서 {i+1}:\n제목: {doc.title}\n회사명: {getattr(doc, 'company', 'Unknown')}\nURL: {doc.url}\n내용: {doc.content[:200]}..."
-                for i, doc in enumerate(documents[: settings.MAX_DOCUMENTS])
+                f"채용공고 {i+1}:\n제목: {doc.title}\nURL: {doc.url}\n내용: {doc.content[:300]}..."
+                for i, doc in enumerate(documents)
             ]
             formatted_docs = "\n\n".join(doc_texts)
 
-            # 프롬프트 템플릿 생성
+            # 프롬프트 템플릿 생성 (Function Calling용으로 단순화)
             prompt = f"""
-                아래는 벡터 검색을 통해 불러온 채용공고 10건입니다.
+                다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다.
 
-                참고 문서(Top 10 채용공고 요약 및 메타데이터 포함):
-
-                참고 채용공고:
+                검색된 채용공고:
                 {formatted_docs}
 
                 사용자 질문: {query}
 
-                사용자의 질문에 반영된 선호와 상황을 바탕으로 위 채용공고 중 **가장 적합한 3개를 선택**하여 아래 형식에 맞춰 구체적으로 추천해주세요.
-
-                답변 형식을 반드시 다음과 같이 작성해주세요:
-                [추천 채용공고]
-                1. 첫 번째 추천  
-                제목: <제목>  
-                회사명: <회사명>  
-                공고 URL: <URL>  
-                추천 이유: <추천 이유>  
-
-                2. 두 번째 추천  
-                제목: <제목>  
-                회사명: <회사명>  
-                공고 URL: <URL>  
-                추천 이유: <추천 이유>  
-
-                3. 세 번째 추천  
-                제목: <제목>  
-                회사명: <회사명>  
-                공고 URL: <URL>  
-                추천 이유: <추천 이유>  
-
-                [요약]  
-                <전체적인 요약 및 추천 기준에 대한 설명>
-
-                [실행 가능한 조언]  
-                <사용자가 실제 지원 시 참고할 수 있는 구체적이고 실용적인 팁을 제시해주세요>
+                위 10개 채용공고 중에서 사용자에게 가장 적합한 3개를 선별하여 추천해주세요.
                 """
-            # LLM 호출 (새로운 방식)
-            response = await self.llm.ainvoke(prompt)
-            llm_response = response.content
+            
+            # LangChain with_structured_output 방식 (파싱 없이 직접 JSON 받기)
+            structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
+            
+            # LLM 호출 (매우 간단!)
+            result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
+            
+            # 결과를 dict로 변환 (function_args와 동일한 형태)
+            function_args = result.dict()
+            
+            # 전체 응답 텍스트 생성 (사용자에게 보여줄 content)
+            llm_response = f"""
+                {function_args['overall_advice']}
 
-            # 추천된 채용공고 파싱
-            recommended_jobs = self._extract_recommended_jobs(llm_response, documents)
+                추천 채용공고:
+                {chr(10).join([f"{i+1}. {reason}" for i, reason in enumerate(function_args['recommendation_reasons'])])}
 
-            # 메타데이터 생성 (토큰 계산 제거)
+                실무 팁:
+                {function_args['practical_tips']}
+            """.strip()
+
+            # 추천된 채용공고 파싱 (Function Call 결과 직접 사용)
+            recommended_jobs = self._extract_recommended_jobs_from_function_call(function_args, documents)
+
+            # 메타데이터 생성 (with_structured_output은 토큰 정보 미제공)
             metadata = LLMMetadata(
                 model=settings.OPENAI_MODEL,
                 tokens=TokenUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0),

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # OpenAI API 설정
     OPENAI_API_KEY: str
-    OPENAI_MODEL: str = "gpt-3.5-turbo"
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
     # Ingestion API 설정
     INGESTION_SERVICE_URL: str

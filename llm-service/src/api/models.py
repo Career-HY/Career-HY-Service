@@ -59,7 +59,6 @@ class RelevantDocument(BaseModel):
     title: str
     url: str
     content: str
-    relevance_score: float
 
 
 class TokenUsage(BaseModel):
@@ -81,13 +80,11 @@ class LLMMetadata(BaseModel):
 
 
 class RecommendedJob(BaseModel):
-    """추천 채용 공고"""
-
+    """추천된 채용공고"""
+    
     title: str
-    company: str
     url: str
     recommendation_reason: str
-    relevance_score: float
 
 
 class LLMResponse(BaseModel):
