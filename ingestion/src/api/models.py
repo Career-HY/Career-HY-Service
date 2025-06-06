@@ -37,6 +37,7 @@ class JobPosting(BaseModel):
     start_date: Optional[str] = None        # 모집 시작일
     crawling_time: Optional[str] = None     # 크롤링 시간
     content: str
+    similarity_score: Optional[float] = None  # 유사도 점수 추가
 
 
 class RetrievalRequest(BaseModel):
