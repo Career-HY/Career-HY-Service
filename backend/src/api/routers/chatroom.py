@@ -5,11 +5,13 @@ from typing import List
 from schemas.chatroom import (
     ChatroomCreate,
     ChatroomRead,
-    ChatroomUpdate
+    ChatroomUpdate,
+    ChatroomDetail
 )
 from crud.chatroom import (
     create_chatroom,
     get_chatroom,
+    get_chatroom_with_messages,
     get_chatrooms_by_member,
     update_chatroom,
     delete_chatroom
@@ -50,7 +52,7 @@ def get_my_chatrooms(
     return get_chatrooms_by_member(db, current_user.id)
 
 
-@router.get("/{chatroom_id}", response_model=ChatroomRead)
+@router.get("/{chatroom_id}", response_model=ChatroomDetail)
 @log_api_call
 def get_chatroom_detail(
     chatroom_id: int,
@@ -58,9 +60,9 @@ def get_chatroom_detail(
     db: Session = Depends(get_db)
 ):
     """
-    특정 채팅방의 정보를 조회합니다.
+    특정 채팅방의 정보와 메시지를 조회합니다.
     """
-    chatroom = get_chatroom(db, chatroom_id, current_user.id)
+    chatroom = get_chatroom_with_messages(db, chatroom_id, current_user.id)
     if not chatroom:
         raise HTTPException(
             status_code=404,

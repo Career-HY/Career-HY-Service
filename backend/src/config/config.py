@@ -16,5 +16,8 @@ class Settings:
     DB_NAME: str = os.getenv("DB_NAME")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "replace-with-your-secret")
     
+    # LLM Service 설정
+    LLM_SERVICE_URL: str = os.getenv("LLM_SERVICE_URL")
+    LLM_REQUEST_TIMEOUT: float = 30.0
 
 settings = Settings()
