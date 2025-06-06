@@ -48,14 +48,6 @@ class LLMServiceClient:
                 logger.debug(f"응답 데이터: {response_data}")
                 
                 return LLMServiceResponse(**response_data)
-                
-        except httpx.TimeoutException:
-            logger.error(f"LLM 서비스 요청 타임아웃: {self.timeout}초")
-            raise Exception("LLM 서비스 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.")
-            
-        except httpx.HTTPStatusError as e:
-            logger.error(f"LLM 서비스 HTTP 에러: {e.response.status_code}")
-            raise Exception(f"LLM 서비스에서 오류가 발생했습니다: {e.response.status_code}")
             
         except Exception as e:
             logger.error(f"LLM 서비스 호출 중 예상치 못한 오류: {str(e)}")
