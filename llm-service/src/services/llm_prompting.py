@@ -116,22 +116,15 @@ class LLMPromptingService:
             response = await self.llm.ainvoke(prompt)
             llm_response = response.content
 
-            # 추천된 채용공고 파싱 (이전에 만든 간단한 방식 사용)
-            recommended_jobs = self._create_recommended_jobs(documents)
+            # 추천된 채용공고 파싱
+            recommended_jobs = self._extract_recommended_jobs(llm_response, documents)
 
-            # 토큰 사용량 - 기본값으로 설정 (response에서 접근하기 어려움)
-            token_usage = TokenUsage(
-                prompt_tokens=len(prompt.split()) * 1.3,  # 대략적 계산
-                completion_tokens=len(llm_response.split()) * 1.3,  # 대략적 계산
-                total_tokens=len(prompt.split()) * 1.3 + len(llm_response.split()) * 1.3,
-            )
-
-            # 메타데이터 생성
+            # 메타데이터 생성 (토큰 계산 제거)
             metadata = LLMMetadata(
                 model=settings.OPENAI_MODEL,
-                tokens=token_usage,
+                tokens=TokenUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
                 document_count=len(recommended_jobs),
-                total_cost=self._calculate_cost(token_usage),
+                total_cost=0.0,
             )
 
             # Langsmith에 메타데이터 기록
@@ -140,7 +133,7 @@ class LLMPromptingService:
                 inputs={"query": query, "num_documents": len(documents)},
                 outputs={
                     "recommended_jobs": [job.dict() for job in recommended_jobs],
-                    "token_usage": token_usage.dict(),
+                    "token_usage": metadata.tokens.dict(),
                 },
             )
 
@@ -155,12 +148,3 @@ class LLMPromptingService:
             logger.error(f"Error generating LLM response: {str(e)}")
             raise
 
-    def _calculate_cost(self, token_usage: TokenUsage) -> float:
-        """토큰 사용량에 따른 비용을 계산합니다."""
-        input_cost_per_1k = 0.0015  # $0.0015 per 1K tokens
-        output_cost_per_1k = 0.002  # $0.002 per 1K tokens
-
-        input_cost = (token_usage.prompt_tokens / 1000) * input_cost_per_1k
-        output_cost = (token_usage.completion_tokens / 1000) * output_cost_per_1k
-
-        return input_cost + output_cost
