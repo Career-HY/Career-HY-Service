@@ -1,20 +1,11 @@
 import ReactMarkdown from 'react-markdown'
 import JobRecommendations from './job-recommendations'
-
-interface JobRecommendation {
-  rec_idx: string
-  title: string
-  url: string
-  deadline: string
-  start_date: string
-  crawling_time: string
-  recommendation_reason: string
-}
+import type { RecommendedJob } from '@/lib/api/generated/model'
 
 interface ApiResponse {
   user_message: string
   llm_response: string
-  recommended_jobs: JobRecommendation[]
+  recommended_jobs: RecommendedJob[]
   created_at: string
 }
 
@@ -22,6 +13,19 @@ interface ChatMessageProps {
   content: string
   apiResponse?: ApiResponse
   timestamp: string
+}
+
+// LLM 응답의 과도한 공백 정리 함수
+const cleanLLMResponse = (text: string): string => {
+  return (
+    text
+      // 줄바꿈 후 많은 공백 제거 (4개 이상의 연속 공백을 1개로)
+      .replace(/\n\s{4,}/g, '\n')
+      // 연속된 공백을 1개로 압축 (단, 줄바꿈은 유지)
+      .replace(/[ \t]{2,}/g, ' ')
+      // 앞뒤 공백 제거
+      .trim()
+  )
 }
 
 export default function ChatMessage({
@@ -70,12 +74,15 @@ export default function ChatMessage({
                   ),
                 }}
               >
-                {apiResponse.llm_response}
+                {cleanLLMResponse(apiResponse.llm_response)}
               </ReactMarkdown>
             </div>
 
             {/* 추천 채용공고 */}
-            <JobRecommendations jobs={apiResponse.recommended_jobs} />
+            {apiResponse.recommended_jobs &&
+              apiResponse.recommended_jobs.length > 0 && (
+                <JobRecommendations jobs={apiResponse.recommended_jobs} />
+              )}
           </>
         ) : (
           <div className="whitespace-pre-wrap">{content}</div>

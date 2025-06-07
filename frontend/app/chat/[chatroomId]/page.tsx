@@ -3,21 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { ChatInput, MessageList } from '@/components/chat'
-
-interface JobRecommendation {
-  rec_idx: string
-  title: string
-  url: string
-  deadline: string
-  start_date: string
-  crawling_time: string
-  recommendation_reason: string
-}
+import { useGetChatroomDetailChatroomsChatroomIdGet } from '@/lib/api/generated/chatrooms/chatrooms'
+import { useChatWithLlmChatroomsChatroomIdChatPost } from '@/lib/api/generated/chat/chat'
+import type { RecommendedJob } from '@/lib/api/generated/model'
 
 interface ApiResponse {
   user_message: string
   llm_response: string
-  recommended_jobs: JobRecommendation[]
+  recommended_jobs: RecommendedJob[]
   created_at: string
 }
 
@@ -152,44 +145,107 @@ const dummyMessages: Message[] = [
 export default function ChatroomPage() {
   const params = useParams()
   const chatroomId = params.chatroomId as string
+  const chatroomIdNumber = parseInt(chatroomId)
 
-  // 123번 채팅방은 더미데이터, 나머지는 빈 배열로 시작
-  const [messages, setMessages] = useState<Message[]>(
-    chatroomId === '123' ? dummyMessages : []
-  )
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // 실제 채팅방 메시지 로딩 (123번 제외)
+  // 채팅방 상세 조회 (orval 생성 훅 사용)
+  const {
+    data: chatroomData,
+    isLoading: isLoadingChatroom,
+    error: chatroomError,
+    refetch: refetchChatroom,
+  } = useGetChatroomDetailChatroomsChatroomIdGet(chatroomIdNumber, {
+    query: {
+      enabled: chatroomId !== '123', // 123번은 더미데이터 사용
+    },
+  })
+
+  // 메시지 전송 (orval 생성 훅 사용)
+  const chatMutation = useChatWithLlmChatroomsChatroomIdChatPost({
+    mutation: {
+      onSuccess: (response) => {
+        const aiMessage: Message = {
+          id: Date.now() + 1,
+          sender: 'assistant',
+          content: '',
+          apiResponse: {
+            user_message: response.user_message,
+            llm_response: response.llm_response,
+            recommended_jobs: response.recommended_jobs || [],
+            created_at: response.created_at,
+          },
+          timestamp: new Date().toLocaleString(),
+        }
+        setMessages((prev) => [...prev, aiMessage])
+        setError(null)
+      },
+      onError: (error) => {
+        console.error('메시지 전송 실패:', error)
+        setError('메시지 전송에 실패했습니다. 다시 시도해주세요.')
+      },
+    },
+  })
+
+  // 채팅방 데이터 로딩
   useEffect(() => {
-    if (chatroomId !== '123') {
-      fetchChatroomMessages(chatroomId)
-    }
-  }, [chatroomId])
+    if (chatroomId === '123') {
+      // 123번 채팅방: 더미 데이터 사용
+      setMessages(dummyMessages)
+    } else if (chatroomData && chatroomData.messages) {
+      // 실제 채팅방: API 데이터 변환
+      const convertedMessages: Message[] = []
 
-  const fetchChatroomMessages = async (id: string) => {
-    try {
-      setIsLoading(true)
-      // TODO: 실제 API 호출로 대체
-      console.log(`${id}번 채팅방 메시지 로딩 중...`)
+      for (let i = 0; i < chatroomData.messages.length; i++) {
+        const message = chatroomData.messages[i]
 
-      // 임시: 빈 배열 반환 (나중에 실제 API로 대체)
-      setTimeout(() => {
-        setMessages([])
-        setIsLoading(false)
-      }, 1000)
-    } catch (error) {
-      console.error('메시지 로딩 실패:', error)
-      setMessages([])
-      setIsLoading(false)
+        if (message.sender === 'user') {
+          convertedMessages.push({
+            id: message.id,
+            sender: 'user',
+            content: message.content || '',
+            timestamp: new Date(message.created_at).toLocaleString(),
+          })
+        } else if (message.sender === 'llm') {
+          // LLM 메시지인 경우 이전 사용자 메시지 찾기
+          const prevUserMessage = chatroomData.messages
+            .slice(0, i)
+            .reverse()
+            .find((m) => m.sender === 'user')
+
+          convertedMessages.push({
+            id: message.id,
+            sender: 'assistant',
+            content: '',
+            apiResponse: {
+              user_message: prevUserMessage?.content || '',
+              llm_response: message.content || '',
+              recommended_jobs: [], // 추후 추가 필요
+              created_at: message.created_at,
+            },
+            timestamp: new Date(message.created_at).toLocaleString(),
+          })
+        }
+      }
+
+      setMessages(convertedMessages)
     }
-  }
+  }, [chatroomId, chatroomData])
+
+  // 에러 처리
+  useEffect(() => {
+    if (chatroomError) {
+      setError('채팅방을 불러오는데 실패했습니다.')
+    }
+  }, [chatroomError])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inputMessage.trim() || isLoading) return
+    if (!inputMessage.trim() || chatMutation.isPending) return
 
-    // 사용자 메시지 추가
+    // 사용자 메시지 즉시 추가
     const userMessage: Message = {
       id: Date.now(),
       sender: 'user',
@@ -198,8 +254,9 @@ export default function ChatroomPage() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = inputMessage
     setInputMessage('')
-    setIsLoading(true)
+    setError(null)
 
     if (chatroomId === '123') {
       // 123번 채팅방: 더미 응답
@@ -209,7 +266,7 @@ export default function ChatroomPage() {
           sender: 'assistant',
           content: '',
           apiResponse: {
-            user_message: inputMessage,
+            user_message: currentInput,
             llm_response:
               '안녕하세요! 저는 123번 더미 채팅방의 AI입니다. 이곳은 데모용 채팅방이에요. 궁금한 것이 있으시면 언제든 물어보세요! 📚',
             recommended_jobs: [],
@@ -218,36 +275,22 @@ export default function ChatroomPage() {
           timestamp: new Date().toLocaleString(),
         }
         setMessages((prev) => [...prev, aiMessage])
-        setIsLoading(false)
       }, 2000)
     } else {
-      // 다른 채팅방: 실제 API 호출 (나중에 구현)
-      try {
-        console.log(`${chatroomId}번 채팅방에서 메시지 전송 중...`)
-
-        // TODO: 실제 API 호출로 대체
-        setTimeout(() => {
-          const aiMessage: Message = {
-            id: Date.now() + 1,
-            sender: 'assistant',
-            content: '',
-            apiResponse: {
-              user_message: inputMessage,
-              llm_response: `안녕하세요! ${chatroomId}번 채팅방입니다. 현재 API 연동 준비 중이에요. 곧 실제 AI 응답을 받을 수 있을 거예요!`,
-              recommended_jobs: [],
-              created_at: new Date().toISOString(),
-            },
-            timestamp: new Date().toLocaleString(),
-          }
-          setMessages((prev) => [...prev, aiMessage])
-          setIsLoading(false)
-        }, 2000)
-      } catch (error) {
-        console.error('메시지 전송 실패:', error)
-        setIsLoading(false)
-      }
+      // 실제 채팅방: API 호출
+      chatMutation.mutate({
+        chatroomId: chatroomIdNumber,
+        data: { message: currentInput },
+      })
     }
   }
+
+  const chatroomTitle =
+    chatroomId === '123'
+      ? '데모 채팅방'
+      : chatroomData?.title || `채팅방 #${chatroomId}`
+
+  const isLoading = isLoadingChatroom || chatMutation.isPending
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -259,12 +302,17 @@ export default function ChatroomPage() {
               📚 데모 채팅방 (더미데이터)
             </span>
           ) : (
-            <span className="inline-flex items-center">
-              💬 채팅방 #{chatroomId} (API 연동 준비중)
-            </span>
+            <span className="inline-flex items-center">💬 {chatroomTitle}</span>
           )}
         </div>
       </div>
+
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mx-6 mt-4 rounded">
+          {error}
+        </div>
+      )}
 
       {/* 메시지 영역 */}
       <MessageList messages={messages} isLoading={isLoading} />

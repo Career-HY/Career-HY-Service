@@ -1,21 +1,12 @@
 import { ExternalLinkIcon, CalendarIcon } from 'lucide-react'
-
-interface JobRecommendation {
-  rec_idx: string
-  title: string
-  url: string
-  deadline: string
-  start_date: string
-  crawling_time: string
-  recommendation_reason: string
-}
+import type { RecommendedJob } from '@/lib/api/generated/model'
 
 interface JobCardProps {
-  job: JobRecommendation
+  job: RecommendedJob
 }
 
 export default function JobCard({ job }: JobCardProps) {
-  const formatDeadline = (deadline: string) => {
+  const formatDeadline = (deadline?: string | null) => {
     if (!deadline) return '상시채용'
     return deadline
   }

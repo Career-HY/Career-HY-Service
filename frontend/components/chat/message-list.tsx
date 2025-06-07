@@ -2,21 +2,12 @@ import { useRef, useEffect } from 'react'
 import ChatMessage from './chat-message'
 import UserMessage from './user-message'
 import LoadingDots from './loading-dots'
-
-interface JobRecommendation {
-  rec_idx: string
-  title: string
-  url: string
-  deadline: string
-  start_date: string
-  crawling_time: string
-  recommendation_reason: string
-}
+import type { RecommendedJob } from '@/lib/api/generated/model'
 
 interface ApiResponse {
   user_message: string
   llm_response: string
-  recommended_jobs: JobRecommendation[]
+  recommended_jobs: RecommendedJob[]
   created_at: string
 }
 

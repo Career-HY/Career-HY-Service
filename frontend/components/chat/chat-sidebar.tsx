@@ -1,3 +1,4 @@
+import { useRouter } from 'next/navigation'
 import { useGetMyChatroomsChatroomsGet } from '@/lib/api/generated/chatrooms/chatrooms'
 import SidebarHeader from './sidebar-header'
 import NewChatButton from './new-chat-button'
@@ -13,6 +14,8 @@ export default function ChatSidebar({
   isCollapsed,
   onToggleCollapse,
 }: ChatSidebarProps) {
+  const router = useRouter()
+
   // 채팅방 목록 조회 API 연동
   const {
     data: chatrooms = [],
@@ -26,8 +29,9 @@ export default function ChatSidebar({
   }
 
   const handleChatroomClick = (chatroomId: number) => {
-    // TODO: 채팅방으로 이동
+    // 채팅방으로 이동
     console.log('채팅방 클릭:', chatroomId)
+    router.push(`/chat/${chatroomId}`)
   }
 
   const handleChatroomEdit = (chatroomId: number) => {
