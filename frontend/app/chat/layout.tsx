@@ -1,8 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/shadcn/button'
-import { PlusIcon, MessageSquareIcon, TrashIcon, EditIcon } from 'lucide-react'
+import {
+  PlusIcon,
+  MessageSquareIcon,
+  TrashIcon,
+  EditIcon,
+  HomeIcon,
+} from 'lucide-react'
 import { useGetMyChatroomsChatroomsGet } from '@/lib/api/generated/chatrooms/chatrooms'
 import type { ChatroomRead } from '@/lib/api/generated/model'
 
@@ -12,6 +19,7 @@ export default function ChatLayout({
   children: React.ReactNode
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const router = useRouter()
 
   // 채팅방 목록 조회 API 연동
   const {
@@ -34,6 +42,10 @@ export default function ChatLayout({
     console.log('새 채팅 생성')
   }
 
+  const handleGoHome = () => {
+    router.push('/')
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* 사이드바 */}
@@ -45,9 +57,22 @@ export default function ChatLayout({
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            {!isCollapsed && (
-              <h1 className="text-lg font-semibold">Career-HY</h1>
-            )}
+            <div className="flex items-center space-x-3">
+              {!isCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGoHome}
+                  className="text-gray-300 hover:text-white hover:bg-gray-800 p-2"
+                  title="홈으로 이동"
+                >
+                  <HomeIcon className="w-4 h-4" />
+                </Button>
+              )}
+              {!isCollapsed && (
+                <h1 className="text-lg font-semibold">Career-HY</h1>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
