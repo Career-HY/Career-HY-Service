@@ -2,55 +2,44 @@
 
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCreateNewChatroomChatroomsPost } from '@/lib/api/generated/chatrooms/chatrooms'
-import { useChatWithLlmChatroomsChatroomIdChatPost } from '@/lib/api/generated/chat/chat'
-import {
-  ChatHeader,
-  ExampleQuestions,
-  ChatInput,
-  ChatFooter,
-} from '@/components/chat'
+import { useCreateChatroom, useChatActions } from '@/hooks/api'
+import ChatHeader from '@/components/chat/chat-header'
+import ExampleQuestions from '@/components/chat/example-questions'
+import ChatInput from '@/components/chat/chat-input'
+import ChatFooter from '@/components/chat/chat-footer'
 
 export default function ChatPage() {
-  const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const [message, setMessage] = useState('')
 
-  const createChatroomMutation = useCreateNewChatroomChatroomsPost()
-  const sendMessageMutation = useChatWithLlmChatroomsChatroomIdChatPost()
+  // 새 채팅방 생성 API 연동
+  const createChatroomMutation = useCreateChatroom()
+
+  const handleSendMessage = async (messageText: string) => {
+    try {
+      // 1. 새 채팅방 생성
+      const newChatroom = await createChatroomMutation.mutateAsync({
+        data: { title: messageText.slice(0, 30) + '...' },
+      })
+
+      // 2. 새 채팅방으로 이동하면서 메시지 전달
+      router.push(
+        `/chat/${newChatroom.id}?initialMessage=${encodeURIComponent(messageText)}`
+      )
+    } catch (error) {
+      console.error('채팅방 생성 실패:', error)
+    }
+  }
 
   const handleExampleClick = (question: string) => {
     setMessage(question)
   }
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!message.trim() || isLoading) return
+    if (!message.trim() || createChatroomMutation.isPending) return
 
-    setIsLoading(true)
-
-    try {
-      // 1. 새 채팅방 생성
-      const chatroomResponse = await createChatroomMutation.mutateAsync({
-        data: { title: message.substring(0, 50) + '...' },
-      })
-
-      const chatroomId = chatroomResponse.id
-
-      // 2. 첫 메시지 전송
-      await sendMessageMutation.mutateAsync({
-        chatroomId,
-        data: { message: message },
-      })
-
-      // 3. 채팅방으로 이동
-      router.push(`/chat/${chatroomId}`)
-    } catch (error) {
-      console.error('Error creating chat:', error)
-      alert('채팅을 시작하는 중 오류가 발생했습니다.')
-    } finally {
-      setIsLoading(false)
-    }
+    handleSendMessage(message)
   }
 
   return (
@@ -60,14 +49,14 @@ export default function ChatPage() {
 
         <ExampleQuestions
           onQuestionClick={handleExampleClick}
-          isLoading={isLoading}
+          isLoading={createChatroomMutation.isPending}
         />
 
         <ChatInput
           message={message}
           setMessage={setMessage}
           onSubmit={handleSubmit}
-          isLoading={isLoading}
+          isLoading={createChatroomMutation.isPending}
         />
 
         <ChatFooter />

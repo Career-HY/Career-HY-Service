@@ -6,9 +6,14 @@ interface ChatroomListProps {
   isCollapsed: boolean
   isLoading?: boolean
   error?: any
+  editingChatroomId?: number | null
+  editingTitle?: string
   onChatroomClick?: (chatroomId: number) => void
   onChatroomEdit?: (chatroomId: number) => void
+  onChatroomSave?: (chatroomId: number, newTitle: string) => void
+  onChatroomCancel?: () => void
   onChatroomDelete?: (chatroomId: number) => void
+  onTitleChange?: (title: string) => void
 }
 
 export default function ChatroomList({
@@ -16,9 +21,14 @@ export default function ChatroomList({
   isCollapsed,
   isLoading,
   error,
+  editingChatroomId,
+  editingTitle = '',
   onChatroomClick,
   onChatroomEdit,
+  onChatroomSave,
+  onChatroomCancel,
   onChatroomDelete,
+  onTitleChange,
 }: ChatroomListProps) {
   return (
     <div className="flex-1 overflow-y-auto">
@@ -46,9 +56,14 @@ export default function ChatroomList({
             key={chatroom.id}
             chatroom={chatroom}
             isCollapsed={isCollapsed}
+            isEditing={editingChatroomId === chatroom.id}
+            editingTitle={editingTitle}
             onClick={onChatroomClick}
             onEdit={onChatroomEdit}
+            onSave={onChatroomSave}
+            onCancel={onChatroomCancel}
             onDelete={onChatroomDelete}
+            onTitleChange={onTitleChange}
           />
         ))}
       </div>

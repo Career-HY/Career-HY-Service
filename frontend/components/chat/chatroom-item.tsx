@@ -1,21 +1,32 @@
+import { useState } from 'react'
 import { Button } from '@/components/shadcn/button'
-import { MessageSquareIcon, EditIcon, TrashIcon } from 'lucide-react'
+import { MessageSquareIcon, EditIcon, TrashIcon, Check, X } from 'lucide-react'
 import type { ChatroomRead } from '@/lib/api/generated/model'
 
 interface ChatroomItemProps {
   chatroom: ChatroomRead
   isCollapsed: boolean
+  isEditing?: boolean
+  editingTitle?: string
   onEdit?: (chatroomId: number) => void
+  onSave?: (chatroomId: number, newTitle: string) => void
+  onCancel?: () => void
   onDelete?: (chatroomId: number) => void
   onClick?: (chatroomId: number) => void
+  onTitleChange?: (title: string) => void
 }
 
 export default function ChatroomItem({
   chatroom,
   isCollapsed,
+  isEditing = false,
+  editingTitle = '',
   onEdit,
+  onSave,
+  onCancel,
   onDelete,
   onClick,
+  onTitleChange,
 }: ChatroomItemProps) {
   const formatChatTitle = (chatroom: ChatroomRead) => {
     if (chatroom.title) {
@@ -27,7 +38,9 @@ export default function ChatroomItem({
   }
 
   const handleClick = () => {
-    onClick?.(chatroom.id)
+    if (!isEditing) {
+      onClick?.(chatroom.id)
+    }
   }
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -35,11 +48,69 @@ export default function ChatroomItem({
     onEdit?.(chatroom.id)
   }
 
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onSave?.(chatroom.id, editingTitle)
+  }
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onCancel?.()
+  }
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
     onDelete?.(chatroom.id)
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSave?.(chatroom.id, editingTitle)
+    } else if (e.key === 'Escape') {
+      onCancel?.()
+    }
+  }
+
+  if (isEditing && !isCollapsed) {
+    // 편집 모드: 전체 행을 편집 UI로 사용
+    return (
+      <div className="group p-3 mb-1 rounded-lg bg-gray-800">
+        <div className="flex items-center space-x-2">
+          <MessageSquareIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={editingTitle}
+            onChange={(e) => onTitleChange?.(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 text-sm bg-gray-700 text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+            placeholder="채팅방 이름을 입력하세요"
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              className="w-6 h-6 p-0 text-green-400 hover:text-green-300 hover:bg-gray-700"
+            >
+              <Check className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="w-6 h-6 p-0 text-red-400 hover:text-red-300 hover:bg-gray-700"
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 일반 모드
   return (
     <div
       onClick={handleClick}

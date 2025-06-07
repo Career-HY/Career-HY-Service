@@ -19,12 +19,18 @@ interface ChatMessageProps {
 const cleanLLMResponse = (text: string): string => {
   return (
     text
-      // 줄바꿈 후 많은 공백 제거 (4개 이상의 연속 공백을 1개로)
-      .replace(/\n\s{4,}/g, '\n')
-      // 연속된 공백을 1개로 압축 (단, 줄바꿈은 유지)
-      .replace(/[ \t]{2,}/g, ' ')
-      // 앞뒤 공백 제거
+      // 먼저 전체 텍스트 앞뒤 공백 제거
       .trim()
+      // 탭을 공백으로 변환
+      .replace(/\t/g, ' ')
+      // 줄바꿈 앞뒤의 공백 제거
+      .replace(/[ \t]*\n[ \t]*/g, '\n')
+      // 줄바꿈 후 많은 공백 제거 (2개 이상의 연속 공백을 1개로)
+      .replace(/\n\s{2,}/g, '\n')
+      // 일반적인 연속 공백을 1개로 압축 (2개 이상)
+      .replace(/[ ]{2,}/g, ' ')
+      // 연속된 줄바꿈을 최대 2개로 제한
+      .replace(/\n{3,}/g, '\n\n')
   )
 }
 
