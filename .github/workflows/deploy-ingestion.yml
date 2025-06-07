@@ -15,56 +15,30 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Setup SSH directory
-      run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v1.0.3
+      uses: appleboy/ssh-action@v0.1.6
       with:
         host: ${{ secrets.INGESTION_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 백업 및 Fresh Clone 방식으로 배포
-          echo "🔄 Fresh Clone 방식으로 배포를 시작합니다..."
-          
-          # 기존 디렉토리 백업
+          # 최신 코드 받기
           if [ -d "Carrer-Hi-RAG" ]; then
-            echo "📦 기존 코드 백업 중..."
-            mv Carrer-Hi-RAG Carrer-Hi-RAG.backup.$(date +%Y%m%d_%H%M%S)
+            cd Carrer-Hi-RAG
+            git pull origin dev
+          else
+            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+            cd Carrer-Hi-RAG
           fi
           
-          # Fresh Clone
-          echo "📥 최신 코드 Clone 중..."
-          git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
-          cd Carrer-Hi-RAG
-          git checkout dev
-          
-          # 최신 상태 확인
-          echo "📋 현재 커밋 확인:"
-          git log --oneline -1
-          
-          # .env 파일 복사
-          if [ -f ~/.env ]; then
-            cp ~/.env .
-            echo "✅ .env 파일을 복사했습니다."
-          else
-            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
+          # .env 파일이 있는지 확인 (사전에 수동으로 업로드 필요)
+          if [ ! -f ".env" ]; then
+            echo "❌ .env 파일이 없습니다. 수동으로 업로드해주세요."
             exit 1
           fi
           
-          # 기존 Ingestion 컨테이너만 정리 및 재시작
-          echo "🔄 Ingestion 서비스 재시작 중..."
-          sudo docker-compose stop ingestion || true
-          sudo docker-compose rm -f ingestion || true
+          # 기존 Ingestion 컨테이너 정리 및 재시작
+          sudo docker-compose down ingestion || true
           sudo docker-compose up -d --build ingestion
-          
-          # 성공 시 백업 파일들 정리 (3개 이상 유지하지 않음)
-          echo "🧹 오래된 백업 파일 정리 중..."
-          ls -t ../Carrer-Hi-RAG.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf || true
-          
-          echo "🚀 Ingestion 서비스 배포가 완료되었습니다."
         
 
