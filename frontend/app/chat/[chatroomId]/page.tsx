@@ -238,19 +238,6 @@ export default function ChatroomPage() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 헤더 (채팅방 정보 표시) */}
-      <div className="border-b border-gray-200 p-4 bg-gray-50">
-        <div className="text-sm text-gray-600">
-          {isDemoRoom ? (
-            <span className="inline-flex items-center">
-              📚 데모 채팅방 (더미데이터)
-            </span>
-          ) : (
-            <span className="inline-flex items-center">💬 {chatroomTitle}</span>
-          )}
-        </div>
-      </div>
-
       {/* 메시지 영역 */}
       {isLoadingChatroom && !isDemoRoom ? (
         <div className="flex justify-center items-center h-full">
