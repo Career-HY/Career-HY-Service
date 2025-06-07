@@ -49,8 +49,6 @@ export const useCurrentUser = () => {
     queryKey: ['currentUser'],
     queryFn: async (): Promise<User | null> => {
       try {
-        // 세션이 유지되고 있는지 확인하는 엔드포인트가 필요할 수 있습니다
-        // 현재는 로그인 시에만 사용자 정보를 설정합니다
         return null
       } catch (error) {
         return null
