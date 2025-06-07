@@ -40,10 +40,16 @@ export const searchCourseCatalogCoursesSearchGet = (
   params?: SearchCourseCatalogCoursesSearchGetParams,
   signal?: AbortSignal
 ) => {
+  const filteredParams = params
+    ? (Object.fromEntries(
+        Object.entries(params).filter(([, value]) => value !== null)
+      ) as Record<string, string | number | boolean>)
+    : undefined
+
   return customInstance<CourseCatalogSearchResult[]>({
     url: `/courses/search`,
     method: 'GET',
-    params,
+    params: filteredParams,
     signal,
   })
 }

@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCreateChatroom, useChatActions } from '@/hooks/api'
+import { useCreateChatroom } from '@/hooks/api'
 import ChatHeader from '@/components/chat/chat-header'
 import ExampleQuestions from '@/components/chat/example-questions'
 import ChatInput from '@/components/chat/chat-input'

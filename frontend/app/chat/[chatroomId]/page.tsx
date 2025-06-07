@@ -1,12 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useChatroomDetail, useChatActions } from '@/hooks/api'
 import { MessageList, ChatInput } from '@/components/chat'
+import type { RecommendedJob, ChatMessageRead } from '@/lib/api/generated/model'
+
+interface ApiResponse {
+  user_message: string
+  llm_response: string
+  recommended_jobs: RecommendedJob[]
+  created_at: string
+}
+
+interface Message {
+  id: number
+  sender: 'user' | 'assistant'
+  content: string
+  apiResponse?: ApiResponse
+  timestamp: string
+}
 
 // 더미 데이터
-const dummyMessages = [
+const dummyMessages: Message[] = [
   {
     id: 1,
     sender: 'user' as const,
@@ -71,7 +87,7 @@ export default function ChatroomPage() {
   const initialMessage = searchParams.get('initialMessage')
 
   const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<any[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 123번은 더미데이터, 나머지는 실제 API 호출
@@ -90,40 +106,117 @@ export default function ChatroomPage() {
       setMessages(dummyMessages)
     } else if (chatroomData?.messages) {
       // 실제 API 데이터 변환
-      const convertedMessages = chatroomData.messages.map((msg: any) => {
-        if (msg.sender === 'user') {
-          return {
-            id: msg.id,
-            sender: 'user',
-            content: msg.content || '',
-            timestamp: new Date(msg.created_at).toLocaleString(),
-          }
-        } else {
-          // AI 메시지는 apiResponse 구조로 변환
-          return {
-            id: msg.id,
-            sender: 'assistant',
-            content: '',
-            apiResponse: {
-              user_message: '', // 이전 사용자 메시지 (필요시 찾아서 연결)
-              llm_response: msg.content || '',
-              recommended_jobs: [], // 기존 메시지에는 추천 공고가 없을 수 있음
-              created_at: msg.created_at,
-            },
-            timestamp: new Date(msg.created_at).toLocaleString(),
+      const convertedMessages: Message[] = chatroomData.messages.map(
+        (msg: ChatMessageRead) => {
+          if (msg.sender === 'user') {
+            return {
+              id: msg.id,
+              sender: 'user',
+              content: msg.content || '',
+              timestamp: new Date(msg.created_at).toLocaleString(),
+            }
+          } else {
+            // AI 메시지는 apiResponse 구조로 변환
+            return {
+              id: msg.id,
+              sender: 'assistant',
+              content: '',
+              apiResponse: {
+                user_message: '', // 이전 사용자 메시지 (필요시 찾아서 연결)
+                llm_response: msg.content || '',
+                recommended_jobs: [], // 기존 메시지에는 추천 공고가 없을 수 있음
+                created_at: msg.created_at,
+              },
+              timestamp: new Date(msg.created_at).toLocaleString(),
+            }
           }
         }
-      })
+      )
       setMessages(convertedMessages)
     }
   }, [isDemoRoom, chatroomData])
+
+  const handleSendMessage = useCallback(
+    async (messageText: string) => {
+      if (!messageText.trim() || isSending) return
+
+      // 사용자 메시지 즉시 추가
+      const userMessage: Message = {
+        id: Date.now(),
+        sender: 'user' as const,
+        content: messageText,
+        timestamp: new Date().toLocaleString(),
+      }
+      setMessages((prev) => [...prev, userMessage])
+      setMessage('')
+
+      if (isDemoRoom) {
+        // 데모 채팅방: 더미 응답
+        setTimeout(() => {
+          const assistantMessage: Message = {
+            id: Date.now() + 1,
+            sender: 'assistant' as const,
+            content: '',
+            apiResponse: {
+              user_message: messageText,
+              llm_response:
+                '이것은 데모 채팅방입니다. 실제 AI 응답을 보시려면 다른 채팅방을 이용해주세요.',
+              recommended_jobs: [],
+              created_at: new Date().toISOString(),
+            },
+            timestamp: new Date().toLocaleString(),
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+        }, 1000)
+      } else {
+        // 실제 API 호출
+        try {
+          const response = await sendMessageAPI(messageText)
+
+          if (response) {
+            const assistantMessage: Message = {
+              id: Date.now() + 1,
+              sender: 'assistant' as const,
+              content: '',
+              apiResponse: {
+                user_message: response.user_message || messageText,
+                llm_response: response.llm_response || '',
+                recommended_jobs: response.recommended_jobs || [],
+                created_at: response.created_at || new Date().toISOString(),
+              },
+              timestamp: new Date().toLocaleString(),
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+          }
+        } catch (error) {
+          console.error('메시지 전송 실패:', error)
+          // 에러 메시지 표시
+          const errorMessage: Message = {
+            id: Date.now() + 1,
+            sender: 'assistant' as const,
+            content: '',
+            apiResponse: {
+              user_message: messageText,
+              llm_response:
+                '죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.',
+              recommended_jobs: [],
+              created_at: new Date().toISOString(),
+            },
+            timestamp: new Date().toLocaleString(),
+          }
+          setMessages((prev) => [...prev, errorMessage])
+        }
+      }
+    },
+    [isDemoRoom, isSending, sendMessageAPI]
+  )
 
   // URL 파라미터로 전달된 초기 메시지가 있다면 자동 전송
   useEffect(() => {
     if (initialMessage && !isDemoRoom) {
       handleSendMessage(initialMessage)
     }
-  }, [initialMessage, isDemoRoom])
+  }, [initialMessage, isDemoRoom, handleSendMessage])
 
   // 메시지 목록 하단으로 스크롤
   const scrollToBottom = () => {
@@ -133,78 +226,6 @@ export default function ChatroomPage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
-
-  const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim() || isSending) return
-
-    // 사용자 메시지 즉시 추가
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user' as const,
-      content: messageText,
-      timestamp: new Date().toLocaleString(),
-    }
-    setMessages((prev) => [...prev, userMessage])
-    setMessage('')
-
-    if (isDemoRoom) {
-      // 데모 채팅방: 더미 응답
-      setTimeout(() => {
-        const assistantMessage = {
-          id: Date.now() + 1,
-          sender: 'assistant' as const,
-          content: '',
-          apiResponse: {
-            user_message: messageText,
-            llm_response:
-              '이것은 데모 채팅방입니다. 실제 AI 응답을 보시려면 다른 채팅방을 이용해주세요.',
-            recommended_jobs: [],
-            created_at: new Date().toISOString(),
-          },
-          timestamp: new Date().toLocaleString(),
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      }, 1000)
-    } else {
-      // 실제 API 호출
-      try {
-        const response = await sendMessageAPI(messageText)
-
-        if (response) {
-          const assistantMessage = {
-            id: Date.now() + 1,
-            sender: 'assistant' as const,
-            content: '',
-            apiResponse: {
-              user_message: response.user_message || messageText,
-              llm_response: response.llm_response || '',
-              recommended_jobs: response.recommended_jobs || [],
-              created_at: response.created_at || new Date().toISOString(),
-            },
-            timestamp: new Date().toLocaleString(),
-          }
-          setMessages((prev) => [...prev, assistantMessage])
-        }
-      } catch (error) {
-        console.error('메시지 전송 실패:', error)
-        // 에러 메시지 표시
-        const errorMessage = {
-          id: Date.now() + 1,
-          sender: 'assistant' as const,
-          content: '',
-          apiResponse: {
-            user_message: messageText,
-            llm_response:
-              '죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.',
-            recommended_jobs: [],
-            created_at: new Date().toISOString(),
-          },
-          timestamp: new Date().toLocaleString(),
-        }
-        setMessages((prev) => [...prev, errorMessage])
-      }
-    }
-  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

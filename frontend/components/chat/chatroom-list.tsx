@@ -4,16 +4,16 @@ import type { ChatroomRead } from '@/lib/api/generated/model'
 interface ChatroomListProps {
   chatrooms: ChatroomRead[]
   isCollapsed: boolean
-  isLoading?: boolean
-  error?: any
-  editingChatroomId?: number | null
-  editingTitle?: string
-  onChatroomClick?: (chatroomId: number) => void
-  onChatroomEdit?: (chatroomId: number) => void
-  onChatroomSave?: (chatroomId: number, newTitle: string) => void
-  onChatroomCancel?: () => void
-  onChatroomDelete?: (chatroomId: number) => void
-  onTitleChange?: (title: string) => void
+  isLoading: boolean
+  error: unknown
+  editingChatroomId: number | null
+  editingTitle: string
+  onChatroomClick: (chatroomId: number) => void
+  onChatroomEdit: (chatroomId: number) => void
+  onChatroomSave: (chatroomId: number, newTitle: string) => void
+  onChatroomCancel: () => void
+  onChatroomDelete: (chatroomId: number) => void
+  onTitleChange: (title: string) => void
 }
 
 export default function ChatroomList({
@@ -58,11 +58,11 @@ export default function ChatroomList({
             isCollapsed={isCollapsed}
             isEditing={editingChatroomId === chatroom.id}
             editingTitle={editingTitle}
-            onClick={onChatroomClick}
-            onEdit={onChatroomEdit}
-            onSave={onChatroomSave}
-            onCancel={onChatroomCancel}
-            onDelete={onChatroomDelete}
+            onChatroomClick={onChatroomClick}
+            onChatroomEdit={onChatroomEdit}
+            onChatroomSave={onChatroomSave}
+            onChatroomCancel={onChatroomCancel}
+            onChatroomDelete={onChatroomDelete}
             onTitleChange={onTitleChange}
           />
         ))}

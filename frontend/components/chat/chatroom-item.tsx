@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Button } from '@/components/shadcn/button'
 import { MessageSquareIcon, EditIcon, TrashIcon, Check, X } from 'lucide-react'
 import type { ChatroomRead } from '@/lib/api/generated/model'
@@ -8,12 +7,12 @@ interface ChatroomItemProps {
   isCollapsed: boolean
   isEditing?: boolean
   editingTitle?: string
-  onEdit?: (chatroomId: number) => void
-  onSave?: (chatroomId: number, newTitle: string) => void
-  onCancel?: () => void
-  onDelete?: (chatroomId: number) => void
-  onClick?: (chatroomId: number) => void
-  onTitleChange?: (title: string) => void
+  onChatroomClick: (chatroomId: number) => void
+  onChatroomEdit: (chatroomId: number) => void
+  onChatroomSave: (chatroomId: number, newTitle: string) => void
+  onChatroomCancel: () => void
+  onChatroomDelete: (chatroomId: number) => void
+  onTitleChange: (title: string) => void
 }
 
 export default function ChatroomItem({
@@ -21,53 +20,51 @@ export default function ChatroomItem({
   isCollapsed,
   isEditing = false,
   editingTitle = '',
-  onEdit,
-  onSave,
-  onCancel,
-  onDelete,
-  onClick,
+  onChatroomClick,
+  onChatroomEdit,
+  onChatroomSave,
+  onChatroomCancel,
+  onChatroomDelete,
   onTitleChange,
 }: ChatroomItemProps) {
   const formatChatTitle = (chatroom: ChatroomRead) => {
     if (chatroom.title) {
       return chatroom.title
     }
-    // title이 없으면 날짜와 시간으로 표시
-    const date = new Date(chatroom.created_at)
-    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`
+    return `채팅방 #${chatroom.id}`
   }
 
   const handleClick = () => {
     if (!isEditing) {
-      onClick?.(chatroom.id)
+      onChatroomClick(chatroom.id)
     }
   }
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onEdit?.(chatroom.id)
+    onChatroomEdit(chatroom.id)
   }
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onSave?.(chatroom.id, editingTitle)
+    onChatroomSave(chatroom.id, editingTitle)
   }
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onCancel?.()
+    onChatroomCancel()
   }
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onDelete?.(chatroom.id)
+    onChatroomDelete(chatroom.id)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      onSave?.(chatroom.id, editingTitle)
+      onChatroomSave(chatroom.id, editingTitle)
     } else if (e.key === 'Escape') {
-      onCancel?.()
+      onChatroomCancel()
     }
   }
 
@@ -80,7 +77,7 @@ export default function ChatroomItem({
           <input
             type="text"
             value={editingTitle}
-            onChange={(e) => onTitleChange?.(e.target.value)}
+            onChange={(e) => onTitleChange(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 text-sm bg-gray-700 text-gray-200 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
             placeholder="채팅방 이름을 입력하세요"

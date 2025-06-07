@@ -19,7 +19,7 @@ export default function ChatInput({
       e.preventDefault()
       const form = e.currentTarget.form
       if (form) {
-        onSubmit(e as any)
+        form.requestSubmit()
       }
     }
   }

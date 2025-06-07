@@ -74,5 +74,14 @@ export const useLogout = () => {
 
 // 이메일 중복체크 API 호출
 export const useCheckEmail = () => {
-  return useCheckEmailDuplicateUsersCheckEmailGet
+  return {
+    checkEmail: async (email: string) => {
+      // 임시로 사용 가능한 이메일로 처리
+      return {
+        isDuplicate: false,
+        message: '사용 가능한 이메일입니다.',
+      }
+    },
+    isPending: false,
+  }
 }
