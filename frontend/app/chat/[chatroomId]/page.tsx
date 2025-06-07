@@ -235,10 +235,6 @@ export default function ChatroomPage() {
     handleSendMessage(message)
   }
 
-  const chatroomTitle = isDemoRoom
-    ? '📚 데모 채팅방'
-    : chatroomData?.title || `💬 채팅방 #${chatroomId}`
-
   return (
     <div className="flex flex-col h-full bg-white">
       {/* 메시지 영역 */}
