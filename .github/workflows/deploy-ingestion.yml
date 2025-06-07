@@ -42,6 +42,10 @@ jobs:
           cd Carrer-Hi-RAG
           git checkout dev
           
+          # 최신 상태 확인
+          echo "📋 현재 커밋 확인:"
+          git log --oneline -1
+          
           # .env 파일 복사
           if [ -f ~/.env ]; then
             cp ~/.env .

@@ -21,7 +21,7 @@ jobs:
         chmod 700 ~/.ssh
 
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.6
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.BACKEND_HOST }}
         username: ubuntu
@@ -41,6 +41,10 @@ jobs:
           git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
           cd Carrer-Hi-RAG
           git checkout dev
+          
+          # 최신 상태 확인
+          echo "📋 현재 커밋 확인:"
+          git log --oneline -1
           
           # .env 파일 복사
           if [ -f ~/.env ]; then
