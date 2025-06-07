@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useLogin } from '@/hooks/useAuth'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const router = useRouter()
 
   const loginMutation = useLogin()
 
@@ -25,9 +27,8 @@ export default function LoginForm() {
         pwd: password,
       })
 
-      // 로그인 성공 시 처리
-      alert('로그인 성공!')
-      // TODO: 메인 페이지로 리다이렉트 이후 작업
+      // 로그인 성공 시 채팅 페이지로 리다이렉트
+      router.push('/chat')
     } catch (err: any) {
       // 에러 처리
       if (err.response?.status === 401) {
