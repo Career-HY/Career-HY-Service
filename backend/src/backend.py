@@ -25,7 +25,12 @@ app.add_middleware(
 # 로깅 시스템 초기화
 setup_logging()
 
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=settings.SECRET_KEY,
+    same_site='none',
+    https_only=True
+)
 app.include_router(user.router)
 app.include_router(profile.router)
 app.include_router(course.router)
