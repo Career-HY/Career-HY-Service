@@ -113,3 +113,42 @@ export const useLogout = () => {
     },
   })
 }
+
+// 이메일 중복체크 API 호출
+export const useCheckEmail = () => {
+  return useMutation({
+    mutationFn: async (
+      email: string
+    ): Promise<{ message: string; available: boolean }> => {
+      try {
+        console.log('🔍 이메일 중복체크 요청:', email)
+
+        const response = await api.get(
+          `users/check-email?email=${encodeURIComponent(email)}`
+        )
+        const data = await response.json<{
+          message: string
+          available: boolean
+        }>()
+
+        console.log('✅ 이메일 중복체크 성공:', data)
+        return data
+      } catch (error: any) {
+        console.error('❌ 이메일 중복체크 실패:', error)
+
+        // 409 상태 코드 (중복)인 경우 구체적인 에러 처리
+        if (error.response?.status === 409) {
+          throw new Error('이미 사용 중인 이메일입니다')
+        }
+
+        throw new Error('이메일 확인 중 오류가 발생했습니다')
+      }
+    },
+    onSuccess: (data) => {
+      console.log('🎉 이메일 중복체크 완료:', data)
+    },
+    onError: (error) => {
+      console.error('💥 이메일 중복체크 에러:', error)
+    },
+  })
+}

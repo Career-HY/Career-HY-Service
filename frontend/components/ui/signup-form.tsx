@@ -7,6 +7,7 @@ import LoginCard from './login-card'
 import LoginInput from './login-input'
 import { Button } from '@/components/shadcn/button'
 import ErrorMessage from './error-message'
+import { useCheckEmail, useSignup } from '@/hooks/useAuth'
 
 export default function SignupForm() {
   const [formData, setFormData] = useState({
@@ -15,10 +16,11 @@ export default function SignupForm() {
     confirmPassword: '',
   })
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [emailCheckLoading, setEmailCheckLoading] = useState(false)
   const [emailChecked, setEmailChecked] = useState(false)
   const router = useRouter()
+
+  const checkEmailMutation = useCheckEmail()
+  const signupMutation = useSignup()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -39,22 +41,14 @@ export default function SignupForm() {
       return
     }
 
-    setEmailCheckLoading(true)
     setError('')
 
     try {
-      // TODO: API 연동 (나중에 구현)
-      console.log('이메일 중복체크:', formData.email)
-
-      // 임시: 성공 가정
-      setTimeout(() => {
-        setEmailChecked(true)
-        setEmailCheckLoading(false)
-        alert('사용 가능한 이메일입니다!')
-      }, 1000)
+      await checkEmailMutation.mutateAsync(formData.email)
+      setEmailChecked(true)
+      // 성공 메시지는 이미 화면에 표시됨
     } catch (err: any) {
-      setEmailCheckLoading(false)
-      setError('이메일 중복체크 중 오류가 발생했습니다.')
+      setError(err.message || '이메일 중복체크 중 오류가 발생했습니다.')
     }
   }
 
@@ -83,21 +77,19 @@ export default function SignupForm() {
       return
     }
 
-    setIsLoading(true)
-
     try {
-      // TODO: API 연동 (나중에 구현)
-      console.log('회원가입 데이터:', formData)
+      await signupMutation.mutateAsync({
+        email: formData.email,
+        pwd: formData.password,
+      })
 
-      // 임시: 성공 가정하고 로그인 페이지로 이동
-      setTimeout(() => {
-        alert('회원가입이 완료되었습니다! 로그인해주세요.')
-        router.push('/')
-      }, 1000)
+      // 회원가입 성공 시 로그인 페이지로 이동
+      alert('회원가입이 완료되었습니다! 로그인해주세요.')
+      router.push('/')
     } catch (err: any) {
-      setError('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.')
-    } finally {
-      setIsLoading(false)
+      const errorMessage =
+        err.message || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'
+      setError(errorMessage)
     }
   }
 
@@ -140,19 +132,21 @@ export default function SignupForm() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                disabled={isLoading}
+                disabled={emailChecked || checkEmailMutation.isPending}
                 autoComplete="off"
               />
             </div>
             <Button
               type="button"
-              disabled={!formData.email || emailChecked || emailCheckLoading}
+              disabled={
+                !formData.email || emailChecked || checkEmailMutation.isPending
+              }
               onClick={handleEmailCheck}
               variant="outline"
               className="flex-[1] min-w-[100px] h-9 disabled:opacity-70"
             >
               <div className="flex items-center justify-center">
-                {emailCheckLoading ? (
+                {checkEmailMutation.isPending ? (
                   <>
                     <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-1"></div>
                     확인중
@@ -179,7 +173,7 @@ export default function SignupForm() {
           value={formData.password}
           onChange={handleChange}
           required
-          disabled={isLoading}
+          disabled={signupMutation.isPending}
           autoComplete="off"
         />
 
@@ -192,16 +186,16 @@ export default function SignupForm() {
           value={formData.confirmPassword}
           onChange={handleChange}
           required
-          disabled={isLoading}
+          disabled={signupMutation.isPending}
           autoComplete="off"
         />
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={signupMutation.isPending}
           className="h-11 w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
         >
-          {isLoading ? (
+          {signupMutation.isPending ? (
             <div className="flex items-center">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
               가입 중...
