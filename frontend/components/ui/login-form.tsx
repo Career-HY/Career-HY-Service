@@ -2,8 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import Link from 'next/link'
 import { useLogin } from '@/hooks/useAuth'
+import LoginCard from './login-card'
+import LoginInput from './login-input'
+import { Button } from '@/components/shadcn/button'
+import ErrorMessage from './error-message'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -40,100 +44,70 @@ export default function LoginForm() {
     }
   }
 
+  const bottomLink = (
+    <p className="text-gray-600 text-sm">
+      아직 계정이 없으신가요?{' '}
+      <Link
+        href="/signup"
+        className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+      >
+        회원가입
+      </Link>
+    </p>
+  )
+
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <Image
-              src="/images/logos/careerhy.png"
-              alt="Career-HY"
-              width={64}
-              height={64}
-              className="object-contain"
-            />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Career-HY</h2>
-          <p className="text-gray-600 mb-1">한양대학교 취업지원 포털에</p>
-          <p className="text-gray-600 font-medium">오신 것을 환영합니다.</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Hanyang Career Support Portal
-          </p>
-        </div>
+    <LoginCard
+      title="Career-HY"
+      subtitle1="한양대학교 취업지원 포털에"
+      subtitle2="오신 것을 환영합니다."
+      description="Hanyang Career Support Portal"
+      bottomLink={bottomLink}
+    >
+      <ErrorMessage message={error} />
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <LoginInput
+          id="email"
+          name="email"
+          type="text"
+          label="이메일"
+          placeholder="student@hanyang.ac.kr"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          disabled={loginMutation.isPending}
+          autoComplete="username"
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              이메일
-            </label>
-            <input
-              id="email"
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="student@hanyang.ac.kr"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
-              required
-              disabled={loginMutation.isPending}
-            />
-          </div>
+        <LoginInput
+          id="password"
+          name="password"
+          type="password"
+          label="비밀번호"
+          placeholder="비밀번호를 입력하세요"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          disabled={loginMutation.isPending}
+          autoComplete="current-password"
+        />
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              비밀번호
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호를 입력하세요"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
-              required
-              disabled={loginMutation.isPending}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loginMutation.isPending}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {loginMutation.isPending ? (
-              <div className="flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                로그인 중...
-              </div>
-            ) : (
-              '로그인'
-            )}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-gray-600 text-sm">
-            아직 계정이 없으신가요?{' '}
-            <a
-              href="#"
-              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
-            >
-              회원가입
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
+        <Button
+          type="submit"
+          disabled={loginMutation.isPending}
+          className="h-11 w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
+        >
+          {loginMutation.isPending ? (
+            <div className="flex items-center">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              로그인 중...
+            </div>
+          ) : (
+            '로그인'
+          )}
+        </Button>
+      </form>
+    </LoginCard>
   )
 }
