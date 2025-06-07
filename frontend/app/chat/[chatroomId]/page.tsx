@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { ChatInput, MessageList } from '@/components/chat'
 
@@ -29,7 +29,7 @@ interface Message {
   timestamp: string
 }
 
-// 더미 메시지 데이터
+// 123번 채팅방 전용 더미 메시지 데이터
 const dummyMessages: Message[] = [
   {
     id: 1,
@@ -153,9 +153,37 @@ export default function ChatroomPage() {
   const params = useParams()
   const chatroomId = params.chatroomId as string
 
-  const [messages, setMessages] = useState<Message[]>(dummyMessages)
+  // 123번 채팅방은 더미데이터, 나머지는 빈 배열로 시작
+  const [messages, setMessages] = useState<Message[]>(
+    chatroomId === '123' ? dummyMessages : []
+  )
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // 실제 채팅방 메시지 로딩 (123번 제외)
+  useEffect(() => {
+    if (chatroomId !== '123') {
+      fetchChatroomMessages(chatroomId)
+    }
+  }, [chatroomId])
+
+  const fetchChatroomMessages = async (id: string) => {
+    try {
+      setIsLoading(true)
+      // TODO: 실제 API 호출로 대체
+      console.log(`${id}번 채팅방 메시지 로딩 중...`)
+
+      // 임시: 빈 배열 반환 (나중에 실제 API로 대체)
+      setTimeout(() => {
+        setMessages([])
+        setIsLoading(false)
+      }, 1000)
+    } catch (error) {
+      console.error('메시지 로딩 실패:', error)
+      setMessages([])
+      setIsLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -163,7 +191,7 @@ export default function ChatroomPage() {
 
     // 사용자 메시지 추가
     const userMessage: Message = {
-      id: messages.length + 1,
+      id: Date.now(),
       sender: 'user',
       content: inputMessage,
       timestamp: new Date().toLocaleString(),
@@ -173,28 +201,71 @@ export default function ChatroomPage() {
     setInputMessage('')
     setIsLoading(true)
 
-    // 임시: 2초 후 AI 응답 (나중에 실제 API로 대체)
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: messages.length + 2,
-        sender: 'assistant',
-        content: '',
-        apiResponse: {
-          user_message: inputMessage,
-          llm_response:
-            '이것은 임시 AI 응답입니다. 나중에 실제 API로 연결할 예정입니다.',
-          recommended_jobs: [],
-          created_at: new Date().toISOString(),
-        },
-        timestamp: new Date().toLocaleString(),
+    if (chatroomId === '123') {
+      // 123번 채팅방: 더미 응답
+      setTimeout(() => {
+        const aiMessage: Message = {
+          id: Date.now() + 1,
+          sender: 'assistant',
+          content: '',
+          apiResponse: {
+            user_message: inputMessage,
+            llm_response:
+              '안녕하세요! 저는 123번 더미 채팅방의 AI입니다. 이곳은 데모용 채팅방이에요. 궁금한 것이 있으시면 언제든 물어보세요! 📚',
+            recommended_jobs: [],
+            created_at: new Date().toISOString(),
+          },
+          timestamp: new Date().toLocaleString(),
+        }
+        setMessages((prev) => [...prev, aiMessage])
+        setIsLoading(false)
+      }, 2000)
+    } else {
+      // 다른 채팅방: 실제 API 호출 (나중에 구현)
+      try {
+        console.log(`${chatroomId}번 채팅방에서 메시지 전송 중...`)
+
+        // TODO: 실제 API 호출로 대체
+        setTimeout(() => {
+          const aiMessage: Message = {
+            id: Date.now() + 1,
+            sender: 'assistant',
+            content: '',
+            apiResponse: {
+              user_message: inputMessage,
+              llm_response: `안녕하세요! ${chatroomId}번 채팅방입니다. 현재 API 연동 준비 중이에요. 곧 실제 AI 응답을 받을 수 있을 거예요!`,
+              recommended_jobs: [],
+              created_at: new Date().toISOString(),
+            },
+            timestamp: new Date().toLocaleString(),
+          }
+          setMessages((prev) => [...prev, aiMessage])
+          setIsLoading(false)
+        }, 2000)
+      } catch (error) {
+        console.error('메시지 전송 실패:', error)
+        setIsLoading(false)
       }
-      setMessages((prev) => [...prev, aiMessage])
-      setIsLoading(false)
-    }, 2000)
+    }
   }
 
   return (
     <div className="flex flex-col h-full bg-white">
+      {/* 헤더 (채팅방 정보 표시) */}
+      <div className="border-b border-gray-200 p-4 bg-gray-50">
+        <div className="text-sm text-gray-600">
+          {chatroomId === '123' ? (
+            <span className="inline-flex items-center">
+              📚 데모 채팅방 (더미데이터)
+            </span>
+          ) : (
+            <span className="inline-flex items-center">
+              💬 채팅방 #{chatroomId} (API 연동 준비중)
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* 메시지 영역 */}
       <MessageList messages={messages} isLoading={isLoading} />
 
