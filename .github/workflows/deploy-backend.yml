@@ -27,17 +27,22 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 최신 코드 받기
+          # 백업 및 Fresh Clone 방식으로 배포
+          echo "🔄 Fresh Clone 방식으로 배포를 시작합니다..."
+          
+          # 기존 디렉토리 백업
           if [ -d "Carrer-Hi-RAG" ]; then
-            cd Carrer-Hi-RAG
-            git pull origin dev
-          else
-            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
-            cd Carrer-Hi-RAG
-            git checkout dev
+            echo "📦 기존 코드 백업 중..."
+            mv Carrer-Hi-RAG Carrer-Hi-RAG.backup.$(date +%Y%m%d_%H%M%S)
           fi
           
-          # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
+          # Fresh Clone
+          echo "📥 최신 코드 Clone 중..."
+          git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+          cd Carrer-Hi-RAG
+          git checkout dev
+          
+          # .env 파일 복사
           if [ -f ~/.env ]; then
             cp ~/.env .
             echo "✅ .env 파일을 복사했습니다."
@@ -47,6 +52,13 @@ jobs:
           fi
           
           # 기존 백엔드 컨테이너만 정리 및 재시작
+          echo "🔄 백엔드 서비스 재시작 중..."
           sudo docker-compose stop backend || true
           sudo docker-compose rm -f backend || true
           sudo docker-compose up -d --build backend
+          
+          # 성공 시 백업 파일들 정리 (3개 이상 유지하지 않음)
+          echo "🧹 오래된 백업 파일 정리 중..."
+          ls -t ../Carrer-Hi-RAG.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf || true
+          
+          echo "🚀 백엔드 배포가 완료되었습니다."
