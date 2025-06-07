@@ -14,7 +14,10 @@ class Settings:
     DB_USER: str = os.getenv("DB_USER")
     DB_PASS: str = os.getenv("DB_PASS")
     DB_NAME: str = os.getenv("DB_NAME")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "replace-with-your-secret")
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
+    
+    # CORS 설정 - 쉼표로 구분된 도메인 목록
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS")
     
     # LLM Service 설정
     LLM_SERVICE_URL: str = os.getenv("LLM_SERVICE_URL")
