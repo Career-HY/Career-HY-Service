@@ -5,11 +5,11 @@
  * Document retrieval and processing API for Career-Hi
  * OpenAPI spec version: 1.0.0
  */
-import type { JobPosting } from './jobPosting';
+import type { JobPosting } from './jobPosting'
 
 /**
  * 검색 결과 응답
  */
 export interface RetrievalResponse {
-  results: JobPosting[];
+  results: JobPosting[]
 }

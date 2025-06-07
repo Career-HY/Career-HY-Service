@@ -17,9 +17,10 @@ export default function SignupForm() {
   })
   const [error, setError] = useState('')
   const [emailChecked, setEmailChecked] = useState(false)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
   const router = useRouter()
 
-  const checkEmailMutation = useCheckEmail()
+  const { checkEmail } = useCheckEmail()
   const signupMutation = useSignup()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,9 +43,10 @@ export default function SignupForm() {
     }
 
     setError('')
+    setIsCheckingEmail(true)
 
     try {
-      const result = await checkEmailMutation.mutateAsync(formData.email)
+      const result = await checkEmail(formData.email)
 
       if (result.isDuplicate) {
         // 중복 이메일인 경우
@@ -59,6 +61,8 @@ export default function SignupForm() {
       const error = err as { message?: string }
       setError(error.message || '이메일 중복체크 중 오류가 발생했습니다.')
       setEmailChecked(false)
+    } finally {
+      setIsCheckingEmail(false)
     }
   }
 
@@ -89,8 +93,10 @@ export default function SignupForm() {
 
     try {
       await signupMutation.mutateAsync({
-        email: formData.email,
-        pwd: formData.password,
+        data: {
+          email: formData.email,
+          pwd: formData.password,
+        },
       })
 
       // 회원가입 성공 시 로그인 페이지로 이동
@@ -143,21 +149,19 @@ export default function SignupForm() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                disabled={checkEmailMutation.isPending}
+                disabled={isCheckingEmail}
                 autoComplete="off"
               />
             </div>
             <Button
               type="button"
-              disabled={
-                !formData.email || emailChecked || checkEmailMutation.isPending
-              }
+              disabled={!formData.email || emailChecked || isCheckingEmail}
               onClick={handleEmailCheck}
               variant="outline"
               className="flex-[1] min-w-[100px] h-9 disabled:opacity-70"
             >
               <div className="flex items-center justify-center">
-                {checkEmailMutation.isPending ? (
+                {isCheckingEmail ? (
                   <>
                     <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-1"></div>
                     확인중

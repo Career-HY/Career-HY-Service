@@ -28,8 +28,10 @@ export default function LoginForm() {
 
     try {
       await loginMutation.mutateAsync({
-        email,
-        pwd: password,
+        data: {
+          email,
+          pwd: password,
+        },
       })
 
       // 로그인 성공 시 채팅 페이지로 리다이렉트

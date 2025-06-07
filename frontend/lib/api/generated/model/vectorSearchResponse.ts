@@ -5,15 +5,15 @@
  * Document retrieval and processing API for Career-Hi
  * OpenAPI spec version: 1.0.0
  */
-import type { JobPosting } from './jobPosting';
-import type { VectorSearchResponseSearchTimeMs } from './vectorSearchResponseSearchTimeMs';
+import type { JobPosting } from './jobPosting'
+import type { VectorSearchResponseSearchTimeMs } from './vectorSearchResponseSearchTimeMs'
 
 /**
  * 벡터 검색 테스트 응답
  */
 export interface VectorSearchResponse {
-  query: string;
-  total_found: number;
-  results: JobPosting[];
-  search_time_ms?: VectorSearchResponseSearchTimeMs;
+  query: string
+  total_found: number
+  results: JobPosting[]
+  search_time_ms?: VectorSearchResponseSearchTimeMs
 }

@@ -1,9 +1,9 @@
 import LoginForm from '@/components/ui/login-form'
-import Header from '@/components/layout/header'
-import HeroSection from '@/components/layout/hero-section'
-import FeatureList from '@/components/layout/feature-list'
-import PortalCard from '@/components/layout/portal-card'
-import Footer from '@/components/layout/footer'
+import Header from '@/components/home/header'
+import HeroSection from '@/components/home/hero-section'
+import FeatureList from '@/components/home/feature-list'
+import PortalCard from '@/components/home/portal-card'
+import Footer from '@/components/home/footer'
 
 export default function Home() {
   return (
