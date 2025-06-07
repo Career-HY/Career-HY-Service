@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useChatroomList, useUpdateChatroom } from '@/hooks/api'
+import {
+  useChatroomList,
+  useUpdateChatroom,
+  useDeleteChatroom,
+} from '@/hooks/api'
 import SidebarHeader from './sidebar-header'
 import NewChatButton from './new-chat-button'
 import ChatroomList from './chatroom-list'
@@ -35,10 +39,8 @@ export default function ChatSidebar({
   // 채팅방 수정 API 연동
   const updateChatroomMutation = useUpdateChatroom()
 
-  const handleNewChat = () => {
-    // TODO: 새 채팅방 생성 API 호출
-    console.log('새 채팅 생성')
-  }
+  // 채팅방 삭제 API 연동
+  const deleteChatroomMutation = useDeleteChatroom()
 
   const handleChatroomClick = (chatroomId: number) => {
     // 편집 중이 아닐 때만 이동
@@ -84,8 +86,27 @@ export default function ChatSidebar({
   }
 
   const handleChatroomDelete = (chatroomId: number) => {
-    // TODO: 채팅방 삭제
-    console.log('채팅방 삭제:', chatroomId)
+    // 삭제 확인
+    if (!window.confirm('정말로 이 채팅방을 삭제하시겠습니까?')) {
+      return
+    }
+
+    deleteChatroomMutation.mutate(
+      { chatroomId },
+      {
+        onSuccess: () => {
+          // 삭제된 채팅방이 현재 보고 있는 채팅방이면 메인 페이지로 이동
+          if (currentChatroomId === chatroomId) {
+            router.push('/chat')
+          }
+          console.log('채팅방 삭제 완료:', chatroomId)
+        },
+        onError: (error) => {
+          console.error('채팅방 삭제 실패:', error)
+          alert('채팅방 삭제에 실패했습니다. 다시 시도해주세요.')
+        },
+      }
+    )
   }
 
   return (
@@ -99,7 +120,7 @@ export default function ChatSidebar({
         onToggleCollapse={onToggleCollapse}
       />
 
-      <NewChatButton isCollapsed={isCollapsed} onNewChat={handleNewChat} />
+      <NewChatButton isCollapsed={isCollapsed} />
 
       <ChatroomList
         chatrooms={chatrooms}

@@ -215,8 +215,11 @@ export default function ChatroomPage() {
   useEffect(() => {
     if (initialMessage && !isDemoRoom) {
       handleSendMessage(initialMessage)
+
+      // 초기 메시지 처리 후 URL 정리 (브라우저 히스토리에 남지 않도록)
+      window.history.replaceState({}, '', `/chat/${chatroomId}`)
     }
-  }, [initialMessage, isDemoRoom, handleSendMessage])
+  }, [initialMessage, isDemoRoom, handleSendMessage, chatroomId])
 
   // 메시지 목록 하단으로 스크롤
   const scrollToBottom = () => {
