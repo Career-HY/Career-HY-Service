@@ -15,3 +15,6 @@ ingestion/data/
 
 # 커서 규칙
 .cursorrules
+
+# 파이썬 캐시 파일
+__pycache__/
