@@ -54,9 +54,10 @@ export default function SignupForm() {
         // 사용 가능한 이메일인 경우
         setEmailChecked(true)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 실제 네트워크 에러 등의 경우
-      setError(err.message || '이메일 중복체크 중 오류가 발생했습니다.')
+      const error = err as { message?: string }
+      setError(error.message || '이메일 중복체크 중 오류가 발생했습니다.')
       setEmailChecked(false)
     }
   }
@@ -95,9 +96,10 @@ export default function SignupForm() {
       // 회원가입 성공 시 로그인 페이지로 이동
       alert('회원가입이 완료되었습니다! 로그인해주세요.')
       router.push('/')
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string }
       const errorMessage =
-        err.message || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'
+        error.message || '회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'
       setError(errorMessage)
     }
   }

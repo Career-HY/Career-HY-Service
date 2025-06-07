@@ -34,9 +34,10 @@ export default function LoginForm() {
 
       // 로그인 성공 시 채팅 페이지로 리다이렉트
       router.push('/chat')
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 에러 처리
-      if (err.response?.status === 401) {
+      const error = err as { response?: { status: number } }
+      if (error.response?.status === 401) {
         setError('이메일 또는 비밀번호가 올바르지 않습니다.')
       } else {
         setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')

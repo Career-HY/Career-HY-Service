@@ -27,16 +27,20 @@ export const api = ky.create({
 // orval에서 사용할 커스텀 인스턴스
 export const customInstance = <T>(config: {
   url: string
-  method: 'get' | 'post' | 'put' | 'delete' | 'patch'
-  data?: any
-  params?: any
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  data?: unknown
+  params?: Record<string, string | number | boolean>
+  headers?: Record<string, string>
+  signal?: AbortSignal
 }): Promise<T> => {
-  const { url, method, data, params } = config
+  const { url, method, data, params, headers, signal } = config
 
   return api(url, {
-    method,
+    method: method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch',
     json: data,
     searchParams: params,
+    headers,
+    signal,
   }).json()
 }
 
