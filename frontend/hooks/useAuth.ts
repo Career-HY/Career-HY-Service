@@ -26,19 +26,37 @@ export const useLogin = () => {
 
   return useMutation({
     mutationFn: async (credentials: LoginRequest): Promise<User> => {
-      const response = await api
-        .post('users/login', {
+      try {
+        console.log('🚀 로그인 요청:', credentials)
+
+        const response = await api.post('users/login', {
           json: credentials,
         })
-        .json<User>()
-      return response
+
+        console.log('✅ 응답 받음 - 상태:', response.status)
+        console.log('📋 응답 헤더:', response.headers)
+
+        // 응답 텍스트를 먼저 확인
+        const responseText = await response.text()
+        console.log('📄 응답 텍스트:', responseText)
+
+        // JSON 파싱
+        const data = JSON.parse(responseText) as User
+        console.log('📦 파싱된 데이터:', data)
+
+        return data
+      } catch (error) {
+        console.error('💥 로그인 과정에서 에러:', error)
+        throw error
+      }
     },
     onSuccess: (user) => {
+      console.log('🎉 로그인 성공:', user)
       // 사용자 정보를 캐시에 저장
       queryClient.setQueryData(['currentUser'], user)
     },
     onError: (error) => {
-      console.error('로그인 실패:', error)
+      console.error('❌ 로그인 실패:', error)
     },
   })
 }
