@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/shadcn/button'
 import { PlusIcon, MessageSquareIcon, TrashIcon, EditIcon } from 'lucide-react'
 import { useGetMyChatroomsChatroomsGet } from '@/lib/api/generated/chatrooms/chatrooms'
@@ -20,23 +20,6 @@ export default function ChatLayout({
     error,
   } = useGetMyChatroomsChatroomsGet()
 
-  // 디버깅용 로그
-  useEffect(() => {
-    console.log('🐛 채팅방 API 상태:', {
-      chatrooms,
-      isLoading,
-      error,
-      API_URL: process.env.NEXT_PUBLIC_API_URL,
-    })
-
-    // 쿠키 정보 확인
-    console.log('🍪 현재 쿠키:', document.cookie)
-
-    // 현재 URL과 API URL 확인
-    console.log('🌐 현재 도메인:', window.location.origin)
-    console.log('🎯 API 도메인:', process.env.NEXT_PUBLIC_API_URL)
-  }, [chatrooms, isLoading, error])
-
   const formatChatTitle = (chatroom: ChatroomRead) => {
     if (chatroom.title) {
       return chatroom.title
@@ -49,19 +32,6 @@ export default function ChatLayout({
   const handleNewChat = () => {
     // TODO: 새 채팅방 생성 API 호출
     console.log('새 채팅 생성')
-  }
-
-  // 임시 테스트: 기존 api 인스턴스로 직접 호출
-  const testDirectAPI = async () => {
-    try {
-      console.log('🧪 직접 API 호출 테스트 시작')
-      const { api } = await import('@/lib/api/mutator')
-      const response = await api.get('chatrooms')
-      const data = await response.json()
-      console.log('🧪 직접 API 성공:', data)
-    } catch (error) {
-      console.error('🧪 직접 API 에러:', error)
-    }
   }
 
   return (
@@ -78,27 +48,14 @@ export default function ChatLayout({
             {!isCollapsed && (
               <h1 className="text-lg font-semibold">Career-HY</h1>
             )}
-            <div className="flex items-center space-x-2">
-              {/* 임시 테스트 버튼 */}
-              {!isCollapsed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={testDirectAPI}
-                  className="text-yellow-400 hover:text-yellow-300 text-xs"
-                >
-                  Test
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="text-gray-300 hover:text-white hover:bg-gray-800"
-              >
-                {isCollapsed ? '→' : '←'}
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="text-gray-300 hover:text-white hover:bg-gray-800"
+            >
+              {isCollapsed ? '→' : '←'}
+            </Button>
           </div>
         </div>
 
