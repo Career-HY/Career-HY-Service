@@ -1,11 +1,11 @@
-import LoginForm from '@/components/ui/login-form'
+import SignupForm from '@/components/ui/signup-form'
 import Header from '@/components/layout/header'
 import HeroSection from '@/components/layout/hero-section'
 import FeatureList from '@/components/layout/feature-list'
 import PortalCard from '@/components/layout/portal-card'
 import Footer from '@/components/layout/footer'
 
-export default function Home() {
+export default function SignupPage() {
   return (
     <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
       <Header />
@@ -22,9 +22,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 우측 로그인 폼 */}
+          {/* 우측 회원가입 폼 */}
           <div className="flex-1 max-w-md w-full">
-            <LoginForm />
+            <SignupForm />
           </div>
         </div>
       </div>
