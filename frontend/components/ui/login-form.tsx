@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useLogin } from '@/hooks/useAuth'
 
 export default function LoginForm() {
@@ -43,8 +44,14 @@ export default function LoginForm() {
     <div className="w-full max-w-md mx-auto">
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white font-bold text-xl">한</span>
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <Image
+              src="/images/logos/careerhy.png"
+              alt="Career-HY"
+              width={64}
+              height={64}
+              className="object-contain"
+            />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Career-HY</h2>
           <p className="text-gray-600 mb-1">한양대학교 취업지원 포털에</p>

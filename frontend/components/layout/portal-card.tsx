@@ -1,10 +1,18 @@
+import Image from 'next/image'
+
 export default function PortalCard() {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
       <div className="text-center">
         <div className="flex items-center justify-center space-x-3 mb-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-xs">HYU</span>
+          <div className="w-12 h-12 flex items-center justify-center">
+            <Image
+              src="/images/logos/HYU-logo.png"
+              alt="한양대학교"
+              width={48}
+              height={48}
+              className="object-contain rounded-full"
+            />
           </div>
           <h3 className="text-lg font-bold text-blue-900">
             한양대학교 재학생/졸업생
