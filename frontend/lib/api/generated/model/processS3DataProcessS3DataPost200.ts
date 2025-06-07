@@ -6,4 +6,4 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type ProcessS3DataProcessS3DataPost200 = { [key: string]: unknown };
+export type ProcessS3DataProcessS3DataPost200 = { [key: string]: unknown }

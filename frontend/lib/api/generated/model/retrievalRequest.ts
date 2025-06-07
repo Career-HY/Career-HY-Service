@@ -5,14 +5,14 @@
  * Document retrieval and processing API for Career-Hi
  * OpenAPI spec version: 1.0.0
  */
-import type { CourseInfo } from './courseInfo';
+import type { CourseInfo } from './courseInfo'
 
 /**
  * 사용자 프로필 기반 검색 요청
  */
 export interface RetrievalRequest {
-  major: string;
-  catalogs: CourseInfo[];
-  interest_job: string[];
-  certification: string[];
+  major: string
+  catalogs: CourseInfo[]
+  interest_job: string[]
+  certification: string[]
 }

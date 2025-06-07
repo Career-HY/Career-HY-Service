@@ -5,12 +5,12 @@
  * Document retrieval and processing API for Career-Hi
  * OpenAPI spec version: 1.0.0
  */
-import type { VectorSearchRequestTopK } from './vectorSearchRequestTopK';
+import type { VectorSearchRequestTopK } from './vectorSearchRequestTopK'
 
 /**
  * 벡터 검색 테스트 요청
  */
 export interface VectorSearchRequest {
-  query: string;
-  top_k?: VectorSearchRequestTopK;
+  query: string
+  top_k?: VectorSearchRequestTopK
 }

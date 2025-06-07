@@ -1,39 +1,43 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/shadcn/button'
 import { PlusIcon, MessageSquareIcon, TrashIcon, EditIcon } from 'lucide-react'
-
-interface ChatroomItem {
-  id: number
-  title: string | null
-  created_at: string
-}
+import { useGetMyChatroomsChatroomsGet } from '@/lib/api/generated/chatrooms/chatrooms'
+import type { ChatroomRead } from '@/lib/api/generated/model'
 
 export default function ChatLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [chatrooms, setChatrooms] = useState<ChatroomItem[]>([])
   const [isCollapsed, setIsCollapsed] = useState(false)
 
-  // 임시 더미 데이터 (나중에 API 연동)
-  const dummyChatrooms: ChatroomItem[] = [
-    {
-      id: 1,
-      title: '프론트엔드 개발자 취업 상담',
-      created_at: '2024-01-15T10:30:00Z',
-    },
-    { id: 2, title: null, created_at: '2024-01-14T15:45:00Z' },
-    {
-      id: 3,
-      title: '백엔드 개발 커리어 질문',
-      created_at: '2024-01-13T09:20:00Z',
-    },
-  ]
+  // 채팅방 목록 조회 API 연동
+  const {
+    data: chatrooms = [],
+    isLoading,
+    error,
+  } = useGetMyChatroomsChatroomsGet()
 
-  const formatChatTitle = (chatroom: ChatroomItem) => {
+  // 디버깅용 로그
+  useEffect(() => {
+    console.log('🐛 채팅방 API 상태:', {
+      chatrooms,
+      isLoading,
+      error,
+      API_URL: process.env.NEXT_PUBLIC_API_URL,
+    })
+
+    // 쿠키 정보 확인
+    console.log('🍪 현재 쿠키:', document.cookie)
+
+    // 현재 URL과 API URL 확인
+    console.log('🌐 현재 도메인:', window.location.origin)
+    console.log('🎯 API 도메인:', process.env.NEXT_PUBLIC_API_URL)
+  }, [chatrooms, isLoading, error])
+
+  const formatChatTitle = (chatroom: ChatroomRead) => {
     if (chatroom.title) {
       return chatroom.title
     }
@@ -45,6 +49,19 @@ export default function ChatLayout({
   const handleNewChat = () => {
     // TODO: 새 채팅방 생성 API 호출
     console.log('새 채팅 생성')
+  }
+
+  // 임시 테스트: 기존 api 인스턴스로 직접 호출
+  const testDirectAPI = async () => {
+    try {
+      console.log('🧪 직접 API 호출 테스트 시작')
+      const { api } = await import('@/lib/api/mutator')
+      const response = await api.get('chatrooms')
+      const data = await response.json()
+      console.log('🧪 직접 API 성공:', data)
+    } catch (error) {
+      console.error('🧪 직접 API 에러:', error)
+    }
   }
 
   return (
@@ -61,14 +78,27 @@ export default function ChatLayout({
             {!isCollapsed && (
               <h1 className="text-lg font-semibold">Career-HY</h1>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              {isCollapsed ? '→' : '←'}
-            </Button>
+            <div className="flex items-center space-x-2">
+              {/* 임시 테스트 버튼 */}
+              {!isCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={testDirectAPI}
+                  className="text-yellow-400 hover:text-yellow-300 text-xs"
+                >
+                  Test
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                {isCollapsed ? '→' : '←'}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -88,7 +118,25 @@ export default function ChatLayout({
         {/* 채팅방 목록 */}
         <div className="flex-1 overflow-y-auto">
           <div className="px-2">
-            {dummyChatrooms.map((chatroom) => (
+            {isLoading && !isCollapsed && (
+              <div className="p-3 text-center text-gray-400 text-sm">
+                채팅방 목록을 불러오는 중...
+              </div>
+            )}
+
+            {!!error && !isCollapsed && (
+              <div className="p-3 text-center text-red-400 text-sm">
+                채팅방 목록을 불러오지 못했습니다.
+              </div>
+            )}
+
+            {chatrooms.length === 0 && !isLoading && !error && !isCollapsed && (
+              <div className="p-3 text-center text-gray-500 text-sm">
+                아직 채팅방이 없습니다.
+              </div>
+            )}
+
+            {chatrooms.map((chatroom) => (
               <div
                 key={chatroom.id}
                 className="group flex items-center justify-between p-3 mb-1 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"

@@ -35,12 +35,16 @@ export const customInstance = <T>(config: {
 }): Promise<T> => {
   const { url, method, data, params, headers, signal } = config
 
-  return api(url, {
+  // URL에서 시작하는 슬래시 제거 (prefixUrl 사용 시 필요)
+  const cleanUrl = url.startsWith('/') ? url.slice(1) : url
+
+  return api(cleanUrl, {
     method: method.toLowerCase() as 'get' | 'post' | 'put' | 'delete' | 'patch',
     json: data,
     searchParams: params,
     headers,
     signal,
+    credentials: 'include',
   }).json()
 }
 
