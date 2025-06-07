@@ -15,6 +15,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Setup SSH directory
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.6
       with:
@@ -29,14 +34,19 @@ jobs:
           else
             git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
             cd Carrer-Hi-RAG
+            git checkout dev
           fi
           
-          # .env 파일이 있는지 확인 (사전에 수동으로 업로드 필요)
-          if [ ! -f ".env" ]; then
-            echo "❌ .env 파일이 없습니다. 수동으로 업로드해주세요."
+          # 홈 디렉토리의 .env 파일을 프로젝트 디렉토리로 복사
+          if [ -f ~/.env ]; then
+            cp ~/.env .
+            echo "✅ .env 파일을 복사했습니다."
+          else
+            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
             exit 1
           fi
           
-          # 기존 백엔드 컨테이너 정리 및 재시작
-          sudo docker-compose down backend || true
+          # 기존 백엔드 컨테이너만 정리 및 재시작
+          sudo docker-compose stop backend || true
+          sudo docker-compose rm -f backend || true
           sudo docker-compose up -d --build backend
