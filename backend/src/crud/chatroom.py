@@ -70,7 +70,8 @@ def create_chat_message(db: Session, chatroom_id: int, data: ChatMessageCreate) 
     message = ChatMessage(
         chat_room_id=chatroom_id,
         sender=data.sender,
-        content=data.content
+        content=data.content,
+        recommended_jobs=[job.dict() for job in data.recommended_jobs] if data.recommended_jobs else None
     )
     db.add(message)
     db.commit()
