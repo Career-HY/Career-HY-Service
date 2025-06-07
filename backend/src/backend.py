@@ -9,6 +9,9 @@ from api.routers import user, profile, course, chatroom, chat
 from db.session import get_db
 from util.logging import setup_logging
 
+app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
+
+
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
@@ -22,7 +25,6 @@ app.add_middleware(
 # 로깅 시스템 초기화
 setup_logging()
 
-app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.include_router(user.router)
 app.include_router(profile.router)
