@@ -119,7 +119,11 @@ export const useCheckEmail = () => {
   return useMutation({
     mutationFn: async (
       email: string
-    ): Promise<{ message: string; available: boolean }> => {
+    ): Promise<{
+      message: string
+      available: boolean
+      isDuplicate?: boolean
+    }> => {
       try {
         console.log('🔍 이메일 중복체크 요청:', email)
 
@@ -131,16 +135,19 @@ export const useCheckEmail = () => {
           available: boolean
         }>()
 
-        console.log('✅ 이메일 중복체크 성공:', data)
         return data
       } catch (error: any) {
-        console.error('❌ 이메일 중복체크 실패:', error)
-
-        // 409 상태 코드 (중복)인 경우 구체적인 에러 처리
+        // 409 상태 코드 (중복)인 경우 - 에러가 아닌 정상 응답으로 처리
         if (error.response?.status === 409) {
-          throw new Error('이미 사용 중인 이메일입니다')
+          return {
+            message: '이미 사용 중인 이메일입니다',
+            available: false,
+            isDuplicate: true,
+          }
         }
 
+        // 실제 에러인 경우만 throw
+        console.error('❌ 실제 이메일 중복체크 에러:', error)
         throw new Error('이메일 확인 중 오류가 발생했습니다')
       }
     },

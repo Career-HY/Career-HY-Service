@@ -44,11 +44,20 @@ export default function SignupForm() {
     setError('')
 
     try {
-      await checkEmailMutation.mutateAsync(formData.email)
-      setEmailChecked(true)
-      // 성공 메시지는 이미 화면에 표시됨
+      const result = await checkEmailMutation.mutateAsync(formData.email)
+
+      if (result.isDuplicate) {
+        // 중복 이메일인 경우
+        setError(result.message)
+        setEmailChecked(false)
+      } else {
+        // 사용 가능한 이메일인 경우
+        setEmailChecked(true)
+      }
     } catch (err: any) {
+      // 실제 네트워크 에러 등의 경우
       setError(err.message || '이메일 중복체크 중 오류가 발생했습니다.')
+      setEmailChecked(false)
     }
   }
 
@@ -132,7 +141,7 @@ export default function SignupForm() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                disabled={emailChecked || checkEmailMutation.isPending}
+                disabled={checkEmailMutation.isPending}
                 autoComplete="off"
               />
             </div>
