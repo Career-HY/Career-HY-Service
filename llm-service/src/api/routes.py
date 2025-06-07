@@ -56,7 +56,9 @@ async def generate_llm_response(request: LLMRequest):
         # LLM 서비스로 응답 생성
         llm_service = LLMPromptingService()
         response = await llm_service.generate_response(
-            query=request.query, documents=relevant_docs
+            query=request.query, 
+            documents=relevant_docs,
+            profile=request.profile
         )
 
         return response
