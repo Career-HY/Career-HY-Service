@@ -25,7 +25,7 @@ app.include_router(router)
 @app.get("/")
 def root():
     return {
-        "service": "Career-Hi LLM Service 6/8 08:15 test",
+        "service": "Career-Hi LLM Service 6/8 08:30 test",
         "status": "running",
         "version": "1.0.0",
         "model": settings.OPENAI_MODEL,
