@@ -9,6 +9,19 @@ from util.logging import log_api_call
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.get("/check-email", status_code=200)
+@log_api_call
+def check_email_duplicate(email: str, db: Session = Depends(get_db)):
+    """
+    이메일 중복 여부를 확인합니다.
+    """
+    user = get_user_by_email(db, email)
+    if user:
+        raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다")
+    
+    return {"message": "사용 가능한 이메일입니다", "available": True}
+
+
 @router.post("/signup", response_model=UserRead, status_code=201)
 @log_api_call
 def signup(user_in: UserCreate, db: Session = Depends(get_db)):
