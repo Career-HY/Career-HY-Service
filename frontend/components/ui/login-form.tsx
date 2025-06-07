@@ -1,24 +1,41 @@
 'use client'
 
 import { useState } from 'react'
+import { useLogin } from '@/hooks/useAuth'
 
 export default function LoginForm() {
-  const [userId, setUserId] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [saveId, setSaveId] = useState(false)
+  const [error, setError] = useState('')
+
+  const loginMutation = useLogin()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setError('')
 
-    // TODO: API 연동 로직 추가
-    console.log('로그인 시도:', { userId, password, saveId })
+    if (!email || !password) {
+      setError('이메일과 비밀번호를 모두 입력해주세요.')
+      return
+    }
 
-    // 임시 로딩 시뮬레이션
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    try {
+      await loginMutation.mutateAsync({
+        email,
+        pwd: password,
+      })
+
+      // 로그인 성공 시 처리
+      alert('로그인 성공!')
+      // TODO: 메인 페이지로 리다이렉트 이후 작업
+    } catch (err: any) {
+      // 에러 처리
+      if (err.response?.status === 401) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.')
+      } else {
+        setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
+      }
+    }
   }
 
   return (
@@ -36,22 +53,29 @@ export default function LoginForm() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label
-              htmlFor="userId"
+              htmlFor="email"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              아이디
+              이메일
             </label>
             <input
-              id="userId"
+              id="email"
               type="text"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="학번 또는 아이디를 입력하세요"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="student@hanyang.ac.kr"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
               required
+              disabled={loginMutation.isPending}
             />
           </div>
 
@@ -70,42 +94,16 @@ export default function LoginForm() {
               placeholder="비밀번호를 입력하세요"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
               required
+              disabled={loginMutation.isPending}
             />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={saveId}
-                onChange={(e) => setSaveId(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-600">아이디 저장</span>
-            </label>
-            <div className="flex space-x-2 text-sm">
-              <a
-                href="#"
-                className="text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                아이디 찾기
-              </a>
-              <span className="text-gray-400">|</span>
-              <a
-                href="#"
-                className="text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                비밀번호 찾기
-              </a>
-            </div>
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={loginMutation.isPending}
             className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {isLoading ? (
+            {loginMutation.isPending ? (
               <div className="flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                 로그인 중...
