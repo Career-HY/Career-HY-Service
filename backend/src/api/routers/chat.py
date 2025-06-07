@@ -78,7 +78,8 @@ async def chat_with_llm(
         # 6. LLM 응답을 DB에 저장
         llm_message_data = ChatMessageCreate(
             content=llm_response.content,
-            sender="llm"
+            sender="llm",
+            recommended_jobs=llm_response.recommended_jobs
         )
         create_chat_message(db, chatroom_id, llm_message_data)
         

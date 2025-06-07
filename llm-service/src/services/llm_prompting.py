@@ -5,6 +5,7 @@ from ..api.models import (
     LLMResponse,
     RecommendedJob,
     JobPosting,
+    RetrievalRequest,
 )
 from ..config.config import settings
 from langsmith import Client
@@ -18,17 +19,17 @@ logger = logging.getLogger(__name__)
 class JobRecommendationResponse(BaseModel):
     """채용공고 추천 응답 구조"""
     recommended_job_indices: List[int] = Field(
-        description="추천하는 채용공고의 번호 (1-10)", 
-        min_items=3, 
-        max_items=3
+        description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열", 
+        max_items=3,
+        default=[]
     )
-    overall_advice: str = Field(description="전반적인 취업 준비 방향성과 조언")
+    overall_advice: str = Field(description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변")
     recommendation_reasons: List[str] = Field(
-        description="각 추천 채용공고의 추천 이유", 
-        min_items=3, 
-        max_items=3
+        description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열", 
+        max_items=3,
+        default=[]
     )
-    practical_tips: str = Field(description="지원 시 도움이 될 수 있는 구체적인 팁")
+    practical_tips: str = Field(description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언")
 
 
 class LLMPromptingService:
@@ -44,6 +45,54 @@ class LLMPromptingService:
         self.client = Client()
         self.tracer = LangChainTracer(project_name="career-hi-rag")
 
+    async def _classify_query_intent(self, query: str) -> str:
+        """LLM을 이용해 질문의 의도를 3가지로 분류합니다."""
+        try:
+            classification_prompt = f"""
+                질문을 다음 3가지 중 하나로 분류해주세요:
+
+                1. REJECT: 취업/채용과 무관한 질문
+                예시: 날씨, 맛집, 일반 지식, 수학 문제 등
+
+                2. SEARCH_NEEDED: 채용공고 검색이 필요한 질문
+                예시: 
+                - "추천 채용공고 알려줘"
+                - "백엔드 개발자 채용 정보 찾아줘"
+                - "○○ 회사 채용 있어?"
+                - "신입 개발자 공고 추천해줘"
+
+                3. NO_SEARCH: 일반적인 취업 상담 (문서 검색 불필요)
+                예시:
+                - "자기소개서 작성법"
+                - "면접 준비 방법"
+                - "기술 스택 공부 순서"
+                - "포트폴리오 만드는 법"
+                - "경력 개발 조언"
+
+                질문: {query}
+
+                답변: REJECT, SEARCH_NEEDED, NO_SEARCH 중 하나만
+                """
+            
+            response = await self.llm.ainvoke(classification_prompt)
+            result = response.content.strip().upper()
+            
+            # 유효한 답변인지 확인
+            if "REJECT" in result:
+                return "REJECT"
+            elif "SEARCH_NEEDED" in result:
+                return "SEARCH_NEEDED"
+            elif "NO_SEARCH" in result:
+                return "NO_SEARCH"
+            else:
+                # 애매한 경우 안전하게 검색 진행
+                logger.warning(f"의도 분류 결과가 애매함: {result}, SEARCH_NEEDED로 처리")
+                return "SEARCH_NEEDED"
+            
+        except Exception as e:
+            logger.warning(f"의도 분류 실패, 안전하게 SEARCH_NEEDED로 처리: {e}")
+            return "SEARCH_NEEDED"
+
     def _extract_recommended_jobs_from_function_call(
         self, function_args: Dict[str, Any], documents: List[JobPosting]
     ) -> List[RecommendedJob]:
@@ -54,6 +103,10 @@ class LLMPromptingService:
             # Function Call에서 추천 인덱스와 이유 추출
             indices = function_args.get("recommended_job_indices", [])
             reasons = function_args.get("recommendation_reasons", [])
+            
+            # 빈 배열인 경우 (일반 상담/조언) 빈 리스트 반환
+            if not indices:
+                return []
             
             # RecommendedJob 객체 생성
             for i, idx in enumerate(indices[:3]):  # 최대 3개
@@ -77,8 +130,13 @@ class LLMPromptingService:
                     continue
                     
         except Exception as e:
-            logger.warning(f"Function Call 결과 파싱 실패, fallback 사용: {e}")
-            # 파싱 실패 시 상위 3개로 fallback
+            logger.warning(f"Function Call 결과 파싱 실패: {e}")
+            # 빈 인덱스 배열이면 빈 리스트 반환 (fallback하지 않음)
+            if not function_args.get("recommended_job_indices", []):
+                return []
+            
+            # 파싱 실패하고 인덱스가 있는 경우만 fallback
+            logger.warning("상위 3개로 fallback 사용")
             for i, doc in enumerate(documents[:3]):
                 recommended_job = RecommendedJob(
                     rec_idx=doc.rec_idx,
@@ -94,10 +152,91 @@ class LLMPromptingService:
         return recommended_jobs
 
     async def generate_response(
-        self, query: str, documents: List[JobPosting]
+        self, query: str, documents: List[JobPosting], profile: RetrievalRequest
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
+            # 1단계: LLM으로 질문 의도 분류 (토큰 절약을 위한 간단한 프롬프트)
+            intent = await self._classify_query_intent(query)
+            
+            if intent == "REJECT":
+                return LLMResponse(
+                    content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 취업이나 채용과 관련된 질문을 부탁드립니다.",
+                    recommended_jobs=[]
+                )
+            
+            elif intent == "NO_SEARCH":
+                # 문서 검색 없이 일반 취업 상담 응답 생성
+                return await self._generate_consultation_response(query, profile)
+            
+            elif intent == "SEARCH_NEEDED":
+                # 기존 로직: 문서 검색 + 채용공고 추천
+                return await self._generate_recommendation_response(query, documents, profile)
+            
+            else:
+                # 예상치 못한 경우, 안전하게 검색 진행
+                return await self._generate_recommendation_response(query, documents, profile)
+
+        except Exception as e:
+            logger.error(f"Error generating LLM response: {str(e)}")
+            raise
+
+    async def _generate_consultation_response(self, query: str, profile: RetrievalRequest) -> LLMResponse:
+        """문서 검색 없이 일반 취업 상담 응답을 생성합니다."""
+        try:
+            # 사용자 프로필 정보 정리
+            profile_summary = f"""
+사용자 프로필:
+- 전공: {profile.major}
+- 관심 직무: {', '.join(profile.interest_job)}
+- 자격증: {', '.join(profile.certification)}
+- 수강 과목: {', '.join([course.course_name for course in profile.catalogs[:5]])}{"..." if len(profile.catalogs) > 5 else ""}
+"""
+            
+            consultation_prompt = f"""
+당신은 취업 상담 전문가입니다. 사용자의 프로필을 고려하여 실용적이고 도움이 되는 조언을 제공해주세요.
+
+{profile_summary}
+
+사용자 질문: {query}
+
+다음 형식으로 답변해주세요:
+1. 사용자의 프로필을 구체적으로 언급하며 맞춤형 답변 제공
+2. 전공, 수강 과목, 자격증을 직접 언급하며 관련된 실무 팁 제공
+3. 단계별 실행 방법이나 체크리스트 (필요한 경우)
+
+**중요**: 답변에서 반드시 사용자의 구체적인 프로필 요소를 활용하세요.
+- 전공명을 언급하며 해당 분야와 연관된 조언
+- 수강 과목을 언급하며 관련 기술이나 지식 활용법
+- 자격증을 언급하며 취업 시 활용 방안
+- 관심 직무와 연결된 구체적인 방향성
+
+전문적이지만 친근한 톤으로 답변해주세요.
+"""
+            
+            response = await self.llm.ainvoke(consultation_prompt)
+            
+            return LLMResponse(
+                content=response.content.strip(),
+                recommended_jobs=[]  # 상담에는 채용공고 추천 없음
+            )
+            
+        except Exception as e:
+            logger.error(f"상담 응답 생성 실패: {str(e)}")
+            raise
+
+    async def _generate_recommendation_response(self, query: str, documents: List[JobPosting], profile: RetrievalRequest) -> LLMResponse:
+        """문서 검색 기반 채용공고 추천 응답을 생성합니다."""
+        try:
+            # 사용자 프로필 정보 정리
+            profile_summary = f"""
+사용자 프로필:
+- 전공: {profile.major}
+- 관심 직무: {', '.join(profile.interest_job)}
+- 자격증: {', '.join(profile.certification)}
+- 수강 과목: {', '.join([course.course_name for course in profile.catalogs[:5]])}{"..." if len(profile.catalogs) > 5 else ""}
+"""
+            
             # 문서 포맷팅
             doc_texts = [
                 f"채용공고 {i+1}:\n제목: {doc.title}\nURL: {doc.url}\n내용: {doc.content[:300]}..."
@@ -105,39 +244,68 @@ class LLMPromptingService:
             ]
             formatted_docs = "\n\n".join(doc_texts)
 
-            # 프롬프트 템플릿 생성 (Function Calling용으로 단순화)
+            # 프롬프트 템플릿 생성 (채용공고 추천 전용)
             prompt = f"""
-                다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다.
+당신은 취업 상담 전문가입니다. 사용자의 프로필과 질문에 맞춰 적절한 채용공고를 추천해주세요.
 
-                검색된 채용공고:
-                {formatted_docs}
+{profile_summary}
 
-                사용자 질문: {query}
+다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다:
+{formatted_docs}
 
-                위 10개 채용공고 중에서 사용자에게 가장 적합한 3개를 선별하여 추천해주세요.
-                """
+사용자 질문: {query}
+
+**중요 지침:**
+1. 사용자의 전공, 관심 직무, 수강 과목 등을 고려하여 질문 의도를 파악하세요:
+   - 채용공고 추천을 원하는 질문인가요? (예: "어떤 회사에 지원하면 좋을까요?", "추천 채용공고 알려주세요")
+   - 특정 기술/직무 관련 채용공고를 찾는 질문인가요?
+
+2. **채용공고 추천이 필요한 경우:**
+   - 위 10개 채용공고 중에서 사용자의 프로필에 가장 적합한 1~3개를 선별하여 추천
+   - recommended_job_indices에 해당 번호들을 포함
+   - recommendation_reasons에 사용자의 프로필 데이터를 적극 활용하여 추천 이유를 상세히 명시
+   - ⚠️ 추천 이유 작성 시 반드시 사용자의 구체적인 프로필 요소를 언급하세요:
+     * 전공과 해당 포지션의 연관성 (예: "컴퓨터공학 전공으로 이 백엔드 개발 역할에 적합")
+     * 수강 과목과 업무의 연결점 (예: "웹프로그래밍 과목 수강 경험으로 프론트엔드 업무에 바로 적용 가능")
+     * 자격증과 채용 우대 조건 (예: "정보처리기사 자격증으로 개발자 채용 시 우대")
+     * 관심 직무와 포지션의 일치도
+     * 단, 사용자의 프로필 데이터가 답변에 사용될 여지가 없다면 언급하지 않아도 됩니다.
+   - ⚠️ "채용공고 1", "채용공고 2" 같은 번호 언급 금지
+   - 각 채용공고의 추천 이유는 독립적으로 작성 (예: "이 포지션은...", "해당 회사는..." 등)
+
+3. **일반 상담이 섞인 경우:**
+   - recommended_job_indices는 빈 배열로 설정
+   - overall_advice에 사용자 프로필을 적극 고려한 답변 제공
+   - practical_tips에 전공, 수강 과목, 자격증을 구체적으로 언급하며 맞춤형 조언 제공
+   - 예시: "컴퓨터공학 전공이시니 알고리즘 역량을 강화하세요", "웹프로그래밍 과목을 수강하셨으니 포트폴리오에 웹 프로젝트를 포함하세요"
+   - 단, 사용자의 프로필 데이터가 답변에 사용될 여지가 없다면 언급하지 않아도 됩니다.
+
+사용자의 배경과 질문에 가장 도움이 되는 방식으로 응답해주세요.
+"""
             
-            # LangChain with_structured_output 방식 (파싱 없이 직접 JSON 받기)
+            # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
-            
-            # LLM 호출 (매우 간단!)
             result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
-            
-            # 결과를 dict로 변환 (function_args와 동일한 형태)
             function_args = result.dict()
             
-            # 전체 응답 텍스트 생성 (사용자에게 보여줄 content)
-            llm_response = f"""
-                {function_args['overall_advice']}
+            # 전체 응답 텍스트 생성
+            if function_args['recommended_job_indices']:
+                # 채용공고 추천이 있는 경우 - 제목 목록 제거, 조언과 팁만 포함
+                llm_response = f"""
+{function_args['overall_advice']}
 
-                추천 채용공고:
-                {chr(10).join([f"{i+1}. {reason}" for i, reason in enumerate(function_args['recommendation_reasons'])])}
+실무 팁:
+{function_args['practical_tips']}
+""".strip()
+            else:
+                # 일반 상담/조언인 경우 (채용공고 추천 없음)
+                llm_response = f"""
+{function_args['overall_advice']}
 
-                실무 팁:
-                {function_args['practical_tips']}
-            """.strip()
+{function_args['practical_tips']}
+""".strip()
 
-            # 추천된 채용공고 파싱 (Function Call 결과 직접 사용)
+            # 추천된 채용공고 파싱
             recommended_jobs = self._extract_recommended_jobs_from_function_call(function_args, documents)
 
             # Langsmith에 메타데이터 기록
@@ -154,8 +322,8 @@ class LLMPromptingService:
                 content=llm_response,
                 recommended_jobs=recommended_jobs,
             )
-
+            
         except Exception as e:
-            logger.error(f"Error generating LLM response: {str(e)}")
+            logger.error(f"추천 응답 생성 실패: {str(e)}")
             raise
 

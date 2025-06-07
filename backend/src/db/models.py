@@ -1,6 +1,6 @@
 # models.py
 from sqlalchemy import (
-    Column, String, Integer, DateTime, Boolean, ForeignKey, Table, Text, Enum, DECIMAL, func, text
+    Column, String, Integer, DateTime, Boolean, ForeignKey, Table, Text, Enum, DECIMAL, func, text, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -194,6 +194,7 @@ class ChatMessage(Base):
     chat_room_id = Column(Integer, ForeignKey("chat_room.id"), nullable=False)
     sender       = Column(Enum("user", "llm", name="sender_type"), nullable=False)
     content      = Column(Text, nullable=True)
+    recommended_jobs = Column(JSON, nullable=True)  # 추천 채용공고 JSON 필드 추가
     created_at   = Column(DateTime, nullable=False, server_default=func.now())
     
     # ——— 메시지-채팅방 참조 ———

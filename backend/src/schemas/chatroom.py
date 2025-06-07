@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
+from .chat import RecommendedJob
 
 
 # ——— 채팅방 스키마 ———
@@ -31,6 +32,7 @@ class ChatMessageCreate(BaseModel):
     """채팅 메시지 생성 요청 스키마"""
     content: str
     sender: str = "user"  # "user" 또는 "llm"
+    recommended_jobs: Optional[List[RecommendedJob]] = None
 
 
 class ChatMessageRead(BaseModel):
@@ -39,6 +41,7 @@ class ChatMessageRead(BaseModel):
     chat_room_id: int
     sender: str
     content: Optional[str] = None
+    recommended_jobs: Optional[List[RecommendedJob]] = None
     created_at: datetime
     
     class Config:
