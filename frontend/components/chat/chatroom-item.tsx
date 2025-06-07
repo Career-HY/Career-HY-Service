@@ -5,6 +5,7 @@ import type { ChatroomRead } from '@/lib/api/generated/model'
 interface ChatroomItemProps {
   chatroom: ChatroomRead
   isCollapsed: boolean
+  isActive?: boolean
   isEditing?: boolean
   editingTitle?: string
   onChatroomClick: (chatroomId: number) => void
@@ -18,6 +19,7 @@ interface ChatroomItemProps {
 export default function ChatroomItem({
   chatroom,
   isCollapsed,
+  isActive = false,
   isEditing = false,
   editingTitle = '',
   onChatroomClick,
@@ -71,7 +73,9 @@ export default function ChatroomItem({
   if (isEditing && !isCollapsed) {
     // 편집 모드: 전체 행을 편집 UI로 사용
     return (
-      <div className="group p-3 mb-1 rounded-lg bg-gray-800">
+      <div
+        className={`group p-3 mb-1 rounded-lg ${isActive ? 'bg-gray-700' : 'bg-gray-800'}`}
+      >
         <div className="flex items-center space-x-2">
           <MessageSquareIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <input
@@ -111,12 +115,22 @@ export default function ChatroomItem({
   return (
     <div
       onClick={handleClick}
-      className="group flex items-center justify-between p-3 mb-1 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+      className={`group flex items-center justify-between p-3 mb-1 rounded-lg cursor-pointer transition-colors ${
+        isActive ? 'bg-gray-700 text-white' : 'hover:bg-gray-800 text-gray-200'
+      }`}
     >
       <div className="flex items-center flex-1 min-w-0">
-        <MessageSquareIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <MessageSquareIcon
+          className={`w-4 h-4 flex-shrink-0 ${
+            isActive ? 'text-gray-300' : 'text-gray-400'
+          }`}
+        />
         {!isCollapsed && (
-          <span className="ml-3 text-sm truncate text-gray-200">
+          <span
+            className={`ml-3 text-sm truncate ${
+              isActive ? 'text-white font-medium' : 'text-gray-200'
+            }`}
+          >
             {formatChatTitle(chatroom)}
           </span>
         )}
@@ -128,7 +142,11 @@ export default function ChatroomItem({
             variant="ghost"
             size="sm"
             onClick={handleEdit}
-            className="w-6 h-6 p-0 text-gray-400 hover:text-white hover:bg-gray-700"
+            className={`w-6 h-6 p-0 hover:bg-gray-700 ${
+              isActive
+                ? 'text-gray-300 hover:text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
           >
             <EditIcon className="w-3 h-3" />
           </Button>
@@ -136,7 +154,11 @@ export default function ChatroomItem({
             variant="ghost"
             size="sm"
             onClick={handleDelete}
-            className="w-6 h-6 p-0 text-gray-400 hover:text-red-400 hover:bg-gray-700"
+            className={`w-6 h-6 p-0 hover:bg-gray-700 ${
+              isActive
+                ? 'text-gray-300 hover:text-red-400'
+                : 'text-gray-400 hover:text-red-400'
+            }`}
           >
             <TrashIcon className="w-3 h-3" />
           </Button>

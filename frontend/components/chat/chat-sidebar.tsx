@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useChatroomList, useUpdateChatroom } from '@/hooks/api'
 import SidebarHeader from './sidebar-header'
 import NewChatButton from './new-chat-button'
@@ -16,6 +16,12 @@ export default function ChatSidebar({
   onToggleCollapse,
 }: ChatSidebarProps) {
   const router = useRouter()
+  const params = useParams()
+
+  // 현재 접속중인 채팅방 ID
+  const currentChatroomId = params?.chatroomId
+    ? Number(params.chatroomId)
+    : null
 
   // 편집 상태 관리
   const [editingChatroomId, setEditingChatroomId] = useState<number | null>(
@@ -100,6 +106,7 @@ export default function ChatSidebar({
         isCollapsed={isCollapsed}
         isLoading={isLoading}
         error={error}
+        currentChatroomId={currentChatroomId}
         editingChatroomId={editingChatroomId}
         editingTitle={editingTitle}
         onChatroomClick={handleChatroomClick}

@@ -6,6 +6,7 @@ interface ChatroomListProps {
   isCollapsed: boolean
   isLoading: boolean
   error: unknown
+  currentChatroomId: number | null
   editingChatroomId: number | null
   editingTitle: string
   onChatroomClick: (chatroomId: number) => void
@@ -21,6 +22,7 @@ export default function ChatroomList({
   isCollapsed,
   isLoading,
   error,
+  currentChatroomId,
   editingChatroomId,
   editingTitle = '',
   onChatroomClick,
@@ -56,6 +58,7 @@ export default function ChatroomList({
             key={chatroom.id}
             chatroom={chatroom}
             isCollapsed={isCollapsed}
+            isActive={currentChatroomId === chatroom.id}
             isEditing={editingChatroomId === chatroom.id}
             editingTitle={editingTitle}
             onChatroomClick={onChatroomClick}
