@@ -6,7 +6,7 @@ from typing import Dict, Any
 from schemas.chat import ChatRequest, ChatResponse
 from schemas.chatroom import ChatMessageCreate
 from crud.profile import get_profile
-from crud.chatroom import get_chatroom, create_chat_message
+from crud.chatroom import get_chatroom, create_chat_message, get_recent_chat_messages
 from db.session import get_db
 from util.deps import get_current_user
 from util.logging import log_api_call
@@ -29,9 +29,10 @@ async def chat_with_llm(
     
     1. 사용자 메시지를 DB에 저장
     2. 사용자 프로필 조회 및 변환
-    3. LLM-service에 요청 전송
-    4. LLM 응답을 DB에 저장
-    5. 응답 반환
+    3. 최근 대화 이력 조회
+    4. LLM-service에 요청 전송
+    5. LLM 응답을 DB에 저장
+    6. 응답 반환
     
     Args:
         chatroom_id: 채팅방 ID
@@ -68,14 +69,22 @@ async def chat_with_llm(
         # 4. 프로필을 LLM-service 형식으로 변환
         llm_profile = convert_profile_to_llm_format(profile, db)
         
-        # 5. LLM-service에 요청 전송
+        # 5. 최근 대화 이력 조회
+        recent_messages = get_recent_chat_messages(db, chatroom_id, limit=5)
+        chat_history = [
+            {"role": msg.sender, "content": msg.content}
+            for msg in recent_messages
+        ]
+        
+        # 6. LLM-service에 요청 전송
         llm_client = LLMServiceClient()
         llm_response = await llm_client.generate_response(
             query=request.message,
-            profile=llm_profile
+            profile=llm_profile,
+            chat_history=chat_history  # 대화 이력 추가
         )
         
-        # 6. LLM 응답을 DB에 저장
+        # 7. LLM 응답을 DB에 저장
         llm_message_data = ChatMessageCreate(
             content=llm_response.content,
             sender="llm",
@@ -83,7 +92,7 @@ async def chat_with_llm(
         )
         create_chat_message(db, chatroom_id, llm_message_data)
         
-        # 7. 응답 반환
+        # 8. 응답 반환
         return ChatResponse(
             user_message=request.message,
             llm_response=llm_response.content,

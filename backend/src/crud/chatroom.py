@@ -107,4 +107,30 @@ def delete_chatroom(db: Session, chatroom_id: int, member_id: str) -> bool:
     
     chatroom.is_deleted = True
     db.commit()
-    return True 
+    return True
+
+
+@log_db_operation("SELECT")
+def get_recent_chat_messages(
+    db: Session, 
+    chatroom_id: int, 
+    limit: int = 5
+) -> List[ChatMessage]:
+    """
+    채팅방의 최근 메시지들을 조회합니다.
+    
+    Args:
+        db: 데이터베이스 세션
+        chatroom_id: 채팅방 ID
+        limit: 조회할 최근 메시지 수 (기본값: 5)
+        
+    Returns:
+        List[ChatMessage]: 최근 메시지 목록 (시간순 정렬)
+    """
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.chat_room_id == chatroom_id
+    ).order_by(
+        ChatMessage.created_at.desc()
+    ).limit(limit).all()
+    
+    return list(reversed(messages))  # 시간순 정렬하여 반환 

@@ -51,6 +51,7 @@ class LLMRequest(BaseModel):
 
     query: str = Field(..., description="사용자 질문")
     profile: RetrievalRequest = Field(..., description="사용자 프로필")
+    chat_history: Optional[List[Dict[str, str]]] = None  # [{"role": "user/llm", "content": "메시지"}]
 
 
 class RecommendedJob(BaseModel):

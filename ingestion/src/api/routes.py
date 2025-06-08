@@ -45,6 +45,7 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
             catalogs=request.catalogs,
             interest_job=request.interest_job,
             certification=request.certification,
+            query=request.query,  # 사용자 질문 추가
         )
 
         # 2. ChromaDB에서 유사 문서 검색
