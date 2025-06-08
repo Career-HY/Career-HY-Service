@@ -18,3 +18,6 @@ export { default as UserMessage } from './user-message'
 export { default as JobCard } from './job-card'
 export { default as JobRecommendations } from './job-recommendations'
 export { default as LoadingDots } from './loading-dots'
+
+// Guide components
+export { default as ProfileGuideCard } from './profile-guide-card'

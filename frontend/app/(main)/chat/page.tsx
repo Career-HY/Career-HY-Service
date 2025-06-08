@@ -8,6 +8,16 @@ import ExampleQuestions from '@/components/chat/example-questions'
 import ChatInput from '@/components/chat/chat-input'
 import ChatFooter from '@/components/chat/chat-footer'
 import { setPendingMessage } from '@/store/chat'
+import { Button } from '@/components/shadcn/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/shadcn/card'
+import { ArrowRight } from 'lucide-react'
+import { ProfileGuideCard } from '@/components/chat'
 
 export default function ChatPage() {
   const router = useRouter()
@@ -65,23 +75,27 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-      <div className="w-full max-w-4xl">
-        <ChatHeader />
+    <div className="container mx-auto p-6 space-y-6">
+      <ProfileGuideCard />
 
-        <ExampleQuestions
-          onQuestionClick={handleExampleClick}
-          isLoading={isProcessing}
-        />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        <div className="w-full max-w-4xl">
+          <ChatHeader />
 
-        <ChatInput
-          message={message}
-          setMessage={setMessage}
-          onSubmit={handleSubmit}
-          isLoading={isProcessing}
-        />
+          <ExampleQuestions
+            onQuestionClick={handleExampleClick}
+            isLoading={isProcessing}
+          />
 
-        <ChatFooter />
+          <ChatInput
+            message={message}
+            setMessage={setMessage}
+            onSubmit={handleSubmit}
+            isLoading={isProcessing}
+          />
+
+          <ChatFooter />
+        </div>
       </div>
     </div>
   )
