@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Card,
   CardContent,
@@ -20,26 +20,10 @@ import ActivitiesCard from '@/components/profile/ActivitiesCard'
 import CertificationsCard from '@/components/profile/CertificationsCard'
 import CourseSearch from '@/components/profile/CourseSearch'
 import SelectedCourses from '@/components/profile/SelectedCourses'
-
-// 더미 데이터
-const DUMMY_SELECTED_COURSES = [
-  {
-    id: 4,
-    course_name: '운영체제',
-    course_code: 'CS3004',
-    credit_units: '3',
-    instructor: '최교수',
-    offering_department: '컴퓨터공학과',
-  },
-  {
-    id: 5,
-    course_name: '컴퓨터네트워크',
-    course_code: 'CS3005',
-    credit_units: '3',
-    instructor: '정교수',
-    offering_department: '컴퓨터공학과',
-  },
-]
+import { useProfile } from '@/hooks/useProfile'
+import { editProfileProfilesPatch } from '@/lib/api/generated/profiles/profiles'
+import { useQueryClient } from '@tanstack/react-query'
+import type { CourseCatalogSearchResult } from '@/lib/api/generated/model'
 
 interface Course {
   id: number
@@ -50,21 +34,67 @@ interface Course {
   offering_department: string
 }
 
-export default function ProfilePage() {
-  const [selectedCourses, setSelectedCourses] = useState<Course[]>(
-    DUMMY_SELECTED_COURSES
-  )
+function mapCourseCatalogToCourse(catalog: CourseCatalogSearchResult): Course {
+  return {
+    id: catalog.id,
+    course_name: catalog.course_name || '',
+    course_code: catalog.course_code || '',
+    credit_units: catalog.credit_units || '',
+    instructor: catalog.instructor || '',
+    offering_department: catalog.offering_department || '',
+  }
+}
 
-  const handleAddCourse = (course: Course) => {
+export default function ProfilePage() {
+  const queryClient = useQueryClient()
+  const { data: profile, isLoading } = useProfile()
+  const [selectedCourses, setSelectedCourses] = useState<Course[]>([])
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (profile?.course_catalogs) {
+      setSelectedCourses(profile.course_catalogs.map(mapCourseCatalogToCourse))
+    }
+  }, [profile?.course_catalogs])
+
+  const handleAddCourse = async (course: Course) => {
     if (!selectedCourses.some((c) => c.id === course.id)) {
-      setSelectedCourses([...selectedCourses, course])
+      try {
+        setIsSaving(true)
+        const newCourses = [...selectedCourses, course]
+        await editProfileProfilesPatch({
+          course_catalog_ids: newCourses.map((c) => c.id),
+        })
+        await queryClient.invalidateQueries({ queryKey: ['profile'] })
+        setSelectedCourses(newCourses)
+      } catch (error) {
+        console.error('과목 추가 중 오류 발생:', error)
+      } finally {
+        setIsSaving(false)
+      }
     }
   }
 
-  const handleRemoveCourse = (courseId: number) => {
-    setSelectedCourses(
-      selectedCourses.filter((course) => course.id !== courseId)
-    )
+  const handleRemoveCourse = async (courseId: number) => {
+    try {
+      setIsSaving(true)
+      const newCourses = selectedCourses.filter(
+        (course) => course.id !== courseId
+      )
+      await editProfileProfilesPatch({
+        course_catalog_ids: newCourses.map((c) => c.id),
+      })
+      await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      setSelectedCourses(newCourses)
+    } catch (error) {
+      console.error('과목 삭제 중 오류 발생:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return <div>로딩 중...</div>
   }
 
   return (
@@ -81,10 +111,25 @@ export default function ProfilePage() {
           {/* 기본 정보 탭 */}
           <TabsContent value="basic">
             <div className="space-y-6">
-              <BasicInfoCard />
-              <InterestsCard />
-              <ActivitiesCard />
-              <CertificationsCard />
+              <BasicInfoCard
+                initialGrade={profile?.grade || ''}
+                initialDepartment={profile?.department || ''}
+              />
+              <InterestsCard
+                initialInterests={
+                  profile?.job_interests?.map((i) => i.interest) || []
+                }
+              />
+              <ActivitiesCard
+                initialActivities={
+                  profile?.club_activities?.map((a) => a.content || '') || []
+                }
+              />
+              <CertificationsCard
+                initialCertifications={
+                  profile?.certifications?.map((c) => c.content || '') || []
+                }
+              />
             </div>
           </TabsContent>
 
@@ -97,10 +142,14 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <CourseSearch onAddCourse={handleAddCourse} />
+                  <CourseSearch
+                    onAddCourse={handleAddCourse}
+                    disabled={isSaving}
+                  />
                   <SelectedCourses
                     courses={selectedCourses}
                     onRemoveCourse={handleRemoveCourse}
+                    disabled={isSaving}
                   />
                 </div>
               </CardContent>

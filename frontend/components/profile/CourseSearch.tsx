@@ -1,7 +1,9 @@
 import { Plus, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/shadcn/input'
 import { Button } from '@/components/shadcn/button'
+import { searchCourseCatalogCoursesSearchGet } from '@/lib/api/generated/courses/courses'
+import { useDebounce } from '@/hooks/useDebounce'
 
 interface Course {
   id: number
@@ -42,20 +44,49 @@ const DUMMY_SEARCH_RESULTS = [
 
 interface Props {
   onAddCourse: (course: Course) => void
+  disabled?: boolean
 }
 
-export default function CourseSearch({ onAddCourse }: Props) {
+export default function CourseSearch({ onAddCourse, disabled }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
+  const [searchResults, setSearchResults] = useState<Course[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // 검색 결과 필터링
-  const filteredResults = DUMMY_SEARCH_RESULTS.filter(
-    (course) =>
-      course.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.offering_department
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-  )
+  useEffect(() => {
+    const handleSearch = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setSearchResults([])
+        return
+      }
+
+      try {
+        setIsSearching(true)
+        const results = await searchCourseCatalogCoursesSearchGet({
+          q: debouncedSearchQuery,
+          limit: 10,
+        })
+        setSearchResults(
+          results.map((result) => ({
+            id: result.id,
+            course_name: result.course_name || '',
+            course_code: result.course_code || '',
+            credit_units: result.credit_units || '',
+            instructor: result.instructor || '',
+            offering_department: result.offering_department || '',
+          }))
+        )
+      } catch (error) {
+        console.error('과목 검색 중 오류 발생:', error)
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }
+
+    handleSearch()
+  }, [debouncedSearchQuery])
 
   return (
     <div className="relative">
@@ -70,19 +101,22 @@ export default function CourseSearch({ onAddCourse }: Props) {
             setShowSearchResults(true)
           }}
           onFocus={() => setShowSearchResults(true)}
+          disabled={disabled}
         />
       </div>
 
       {/* 검색 결과 */}
       {showSearchResults && searchQuery && (
         <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-          {filteredResults.length === 0 ? (
+          {isSearching ? (
+            <div className="p-4 text-sm text-gray-500">검색 중...</div>
+          ) : searchResults.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               검색 결과가 없습니다.
             </div>
           ) : (
             <div className="max-h-[300px] overflow-y-auto">
-              {filteredResults.map((course) => (
+              {searchResults.map((course) => (
                 <div
                   key={course.id}
                   className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
@@ -104,6 +138,7 @@ export default function CourseSearch({ onAddCourse }: Props) {
                         setShowSearchResults(false)
                         setSearchQuery('')
                       }}
+                      disabled={disabled}
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       추가

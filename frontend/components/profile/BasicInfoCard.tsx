@@ -1,5 +1,5 @@
 import { Save } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Card,
   CardContent,
@@ -9,11 +9,28 @@ import {
 } from '@/components/shadcn/card'
 import { Input } from '@/components/shadcn/input'
 import { Button } from '@/components/shadcn/button'
+import { editProfileProfilesPatch } from '@/lib/api/generated/profiles/profiles'
+import { useQueryClient } from '@tanstack/react-query'
 
-export default function BasicInfoCard() {
-  const [grade, setGrade] = useState('')
-  const [department, setDepartment] = useState('')
+interface Props {
+  initialGrade: string
+  initialDepartment: string
+}
+
+export default function BasicInfoCard({
+  initialGrade,
+  initialDepartment,
+}: Props) {
+  const queryClient = useQueryClient()
+  const [grade, setGrade] = useState(initialGrade)
+  const [department, setDepartment] = useState(initialDepartment)
   const [isBasicInfoEdited, setIsBasicInfoEdited] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    setGrade(initialGrade)
+    setDepartment(initialDepartment)
+  }, [initialGrade, initialDepartment])
 
   const handleBasicInfoChange = (
     field: 'grade' | 'department',
@@ -24,10 +41,20 @@ export default function BasicInfoCard() {
     setIsBasicInfoEdited(true)
   }
 
-  const handleBasicInfoSave = () => {
-    // TODO: API 호출
-    console.log('기본 정보 저장:', { grade, department })
-    setIsBasicInfoEdited(false)
+  const handleBasicInfoSave = async () => {
+    try {
+      setIsSaving(true)
+      await editProfileProfilesPatch({
+        grade,
+        department,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      setIsBasicInfoEdited(false)
+    } catch (error) {
+      console.error('프로필 수정 중 오류 발생:', error)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -61,9 +88,12 @@ export default function BasicInfoCard() {
             </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={handleBasicInfoSave} disabled={!isBasicInfoEdited}>
+            <Button
+              onClick={handleBasicInfoSave}
+              disabled={!isBasicInfoEdited || isSaving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              저장
+              {isSaving ? '저장 중...' : '저장'}
             </Button>
           </div>
         </div>

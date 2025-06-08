@@ -1,5 +1,4 @@
 import { X } from 'lucide-react'
-import { Button } from '@/components/shadcn/button'
 
 interface Course {
   id: number
@@ -13,37 +12,42 @@ interface Course {
 interface Props {
   courses: Course[]
   onRemoveCourse: (courseId: number) => void
+  disabled?: boolean
 }
 
-export default function SelectedCourses({ courses, onRemoveCourse }: Props) {
+export default function SelectedCourses({
+  courses,
+  onRemoveCourse,
+  disabled,
+}: Props) {
   return (
-    <div>
-      <h3 className="font-medium mb-3">선택된 과목</h3>
-      <div className="space-y-2">
-        {courses.map((course) => (
-          <div
-            key={course.id}
-            className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200"
-          >
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{course.course_name}</span>
-              <span className="text-gray-500">
-                ({course.course_code} • {course.offering_department} •{' '}
-                {course.instructor} • {course.credit_units}학점)
-              </span>
+    <div className="space-y-2">
+      {courses.map((course) => (
+        <div
+          key={course.id}
+          className="p-3 bg-gray-50 rounded-lg flex justify-between items-center"
+        >
+          <div>
+            <div className="font-medium">{course.course_name}</div>
+            <div className="text-sm text-gray-500">
+              {course.course_code} • {course.offering_department} •{' '}
+              {course.instructor} • {course.credit_units}학점
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => onRemoveCourse(course.id)}
-            >
-              <X className="h-4 w-4 mr-1" />
-              삭제
-            </Button>
           </div>
-        ))}
-      </div>
+          <button
+            className="hover:bg-gray-200 rounded-full p-1"
+            onClick={() => onRemoveCourse(course.id)}
+            disabled={disabled}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      {courses.length === 0 && (
+        <div className="text-center text-gray-500 py-4">
+          아직 추가된 과목이 없습니다.
+        </div>
+      )}
     </div>
   )
 }
