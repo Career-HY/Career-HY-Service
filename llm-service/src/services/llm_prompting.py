@@ -21,13 +21,15 @@ class JobRecommendationResponse(BaseModel):
     recommended_job_indices: List[int] = Field(
         description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열", 
         max_items=3,
-        default=[]
+        # default=[]
+        min_items=3
     )
     overall_advice: str = Field(description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변")
     recommendation_reasons: List[str] = Field(
         description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열", 
         max_items=3,
-        default=[]
+        # default=[]
+        min_items=3
     )
     practical_tips: str = Field(description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언")
 
@@ -48,6 +50,8 @@ class LLMPromptingService:
     async def _classify_query_intent(self, query: str) -> str:
         """LLM을 이용해 질문의 의도를 3가지로 분류합니다."""
         try:
+            logger.info(f"🔍 의도 분류 시작 - 질문: '{query}'")
+            
             classification_prompt = f"""
                 질문을 다음 3가지 중 하나로 분류해주세요:
 
@@ -74,23 +78,29 @@ class LLMPromptingService:
                 답변: REJECT, SEARCH_NEEDED, NO_SEARCH 중 하나만
                 """
             
+            logger.debug(f"📝 의도 분류 프롬프트 전송 중...")
             response = await self.llm.ainvoke(classification_prompt)
             result = response.content.strip().upper()
             
+            logger.info(f"🤖 LLM 의도 분류 응답: '{result}'")
+            
             # 유효한 답변인지 확인
             if "REJECT" in result:
+                logger.info(f"❌ 의도 분류 결과: REJECT - 취업/채용과 무관한 질문")
                 return "REJECT"
             elif "SEARCH_NEEDED" in result:
+                logger.info(f"🔍 의도 분류 결과: SEARCH_NEEDED - 채용공고 검색 필요")
                 return "SEARCH_NEEDED"
             elif "NO_SEARCH" in result:
+                logger.info(f"💬 의도 분류 결과: NO_SEARCH - 일반 취업 상담")
                 return "NO_SEARCH"
             else:
                 # 애매한 경우 안전하게 검색 진행
-                logger.warning(f"의도 분류 결과가 애매함: {result}, SEARCH_NEEDED로 처리")
+                logger.warning(f"⚠️ 의도 분류 결과가 애매함: '{result}' -> SEARCH_NEEDED로 처리")
                 return "SEARCH_NEEDED"
             
         except Exception as e:
-            logger.warning(f"의도 분류 실패, 안전하게 SEARCH_NEEDED로 처리: {e}")
+            logger.warning(f"💥 의도 분류 실패, 안전하게 SEARCH_NEEDED로 처리: {e}")
             return "SEARCH_NEEDED"
 
     def _extract_recommended_jobs_from_function_call(
@@ -156,29 +166,36 @@ class LLMPromptingService:
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
+            logger.info(f"🚀 LLM 응답 생성 시작 - 질문: '{query}'")
+            logger.info(f"📊 검색된 문서 수: {len(documents)}")
+            
             # 1단계: LLM으로 질문 의도 분류 (토큰 절약을 위한 간단한 프롬프트)
             intent = await self._classify_query_intent(query)
             
             if intent == "REJECT":
+                logger.info(f"🚫 REJECT 경로 - 거부 응답 반환")
                 return LLMResponse(
                     content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 취업이나 채용과 관련된 질문을 부탁드립니다.",
                     recommended_jobs=[]
                 )
             
             elif intent == "NO_SEARCH":
+                logger.info(f"💬 NO_SEARCH 경로 - 일반 상담 응답 생성")
                 # 문서 검색 없이 일반 취업 상담 응답 생성
                 return await self._generate_consultation_response(query, profile)
             
             elif intent == "SEARCH_NEEDED":
+                logger.info(f"🔍 SEARCH_NEEDED 경로 - 채용공고 추천 응답 생성")
                 # 기존 로직: 문서 검색 + 채용공고 추천
                 return await self._generate_recommendation_response(query, documents, profile)
             
             else:
+                logger.warning(f"⚠️ 예상치 못한 의도: '{intent}' - SEARCH_NEEDED로 처리")
                 # 예상치 못한 경우, 안전하게 검색 진행
                 return await self._generate_recommendation_response(query, documents, profile)
 
         except Exception as e:
-            logger.error(f"Error generating LLM response: {str(e)}")
+            logger.error(f"💥 LLM 응답 생성 중 오류: {str(e)}")
             raise
 
     async def _generate_consultation_response(self, query: str, profile: RetrievalRequest) -> LLMResponse:
@@ -288,6 +305,14 @@ class LLMPromptingService:
             result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
             function_args = result.dict()
             
+            # LLM structured output 결과 로깅
+            logger.info(f"🤖 LLM Structured Output 결과:")
+            logger.info(f"  - recommended_job_indices: {function_args.get('recommended_job_indices', [])}")
+            logger.info(f"  - overall_advice 길이: {len(function_args.get('overall_advice', ''))}")
+            logger.info(f"  - recommendation_reasons 개수: {len(function_args.get('recommendation_reasons', []))}")
+            logger.info(f"  - practical_tips 길이: {len(function_args.get('practical_tips', ''))}")
+            
+
             # 전체 응답 텍스트 생성
             if function_args['recommended_job_indices']:
                 # 채용공고 추천이 있는 경우 - 제목 목록 제거, 조언과 팁만 포함

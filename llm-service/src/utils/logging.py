@@ -2,12 +2,11 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from config.config import Settings
+from ..config.config import settings
 
 
 def setup_logging():
     """로깅 설정을 초기화합니다."""
-    settings = Settings()
 
     # 로그 디렉토리 생성
     log_dir = Path("logs")

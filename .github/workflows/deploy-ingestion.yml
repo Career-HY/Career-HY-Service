@@ -27,17 +27,17 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 기존 디렉토리 백업 후 삭제
+          # 최신 코드 받기
           if [ -d "Carrer-Hi-RAG" ]; then
-            echo "📦 기존 코드 백업 중..."
-            mv Carrer-Hi-RAG Carrer-Hi-RAG.backup.$(date +%Y%m%d_%H%M%S)
+            echo "📥 기존 코드 업데이트 중..."
+            cd Carrer-Hi-RAG
+            git pull origin dev
+          else
+            echo "📥 최신 코드 Clone 중..."
+            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+            cd Carrer-Hi-RAG
+            git checkout dev
           fi
-          
-          # Fresh Clone
-          echo "📥 최신 코드 Clone 중..."
-          git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
-          cd Carrer-Hi-RAG
-          git checkout dev
           
           # .env 파일 복사
           if [ -f ~/.env ]; then
@@ -52,10 +52,6 @@ jobs:
           echo "🔄 Ingestion 서비스 재시작 중..."
           docker-compose down || true
           docker-compose up --build --detach ingestion
-          
-          # 오래된 백업 파일들 정리 (3개 이상 유지하지 않음)
-          echo "🧹 오래된 백업 파일 정리 중..."
-          ls -t ../Carrer-Hi-RAG.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf || true
           
           echo "🚀 Ingestion 서비스 배포가 완료되었습니다."
         
