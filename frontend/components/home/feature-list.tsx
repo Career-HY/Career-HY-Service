@@ -34,7 +34,7 @@ export default function FeatureList() {
   ]
 
   return (
-    <div className="space-y-3 mb-15">
+    <div className="space-y-3 mb-2">
       {features.map((feature, index) => (
         <FeatureItem
           key={index}

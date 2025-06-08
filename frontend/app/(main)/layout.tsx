@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { ChatSidebar } from '@/components/chat'
+import Header from '@/components/layout/Header'
 
-export default function ChatLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode
@@ -24,11 +25,12 @@ export default function ChatLayout({
         />
       </div>
 
-      {/* 메인 콘텐츠 영역 - 사이드바 너비만큼 마진 추가 */}
+      {/* 헤더와 메인 콘텐츠를 포함하는 오른쪽 영역 */}
       <div
         className={`flex-1 flex flex-col ${isCollapsed ? 'ml-16' : 'ml-64'}`}
       >
-        {children}
+        <Header />
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   )

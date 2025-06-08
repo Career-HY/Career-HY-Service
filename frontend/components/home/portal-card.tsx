@@ -27,7 +27,7 @@ export default function PortalCard() {
           href="https://portal.hanyang.ac.kr/sso/lgin.do"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          className="mb-2 inline-flex items-center justify-center px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
         >
           <span className="mr-2">🏫</span>
           한양대학교 포털 바로가기

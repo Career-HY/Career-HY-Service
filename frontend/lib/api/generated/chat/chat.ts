@@ -21,9 +21,10 @@ import { customInstance } from '../../mutator'
 
 1. 사용자 메시지를 DB에 저장
 2. 사용자 프로필 조회 및 변환
-3. LLM-service에 요청 전송
-4. LLM 응답을 DB에 저장
-5. 응답 반환
+3. 최근 대화 이력 조회
+4. LLM-service에 요청 전송
+5. LLM 응답을 DB에 저장
+6. 응답 반환
 
 Args:
     chatroom_id: 채팅방 ID

@@ -369,3 +369,79 @@ export const useLoginUsersLoginPost = <
 
   return useMutation(mutationOptions, queryClient)
 }
+/**
+ * 현재 로그인된 사용자의 세션을 삭제합니다.
+ * @summary Logout
+ */
+export const logoutUsersLogoutPost = (signal?: AbortSignal) => {
+  return customInstance<unknown>({
+    url: `/users/logout`,
+    method: 'POST',
+    signal,
+  })
+}
+
+export const getLogoutUsersLogoutPostMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutUsersLogoutPost>>,
+    TError,
+    void,
+    TContext
+  >
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logoutUsersLogoutPost>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ['logoutUsersLogoutPost']
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      'mutationKey' in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logoutUsersLogoutPost>>,
+    void
+  > = () => {
+    return logoutUsersLogoutPost()
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type LogoutUsersLogoutPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logoutUsersLogoutPost>>
+>
+
+export type LogoutUsersLogoutPostMutationError = unknown
+
+/**
+ * @summary Logout
+ */
+export const useLogoutUsersLogoutPost = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof logoutUsersLogoutPost>>,
+      TError,
+      void,
+      TContext
+    >
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof logoutUsersLogoutPost>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions = getLogoutUsersLogoutPostMutationOptions(options)
+
+  return useMutation(mutationOptions, queryClient)
+}

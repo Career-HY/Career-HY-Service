@@ -5,8 +5,18 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CourseCatalogReadCourseName } from './courseCatalogReadCourseName'
+import type { CourseCatalogReadCourseCode } from './courseCatalogReadCourseCode'
+import type { CourseCatalogReadCreditUnits } from './courseCatalogReadCreditUnits'
+import type { CourseCatalogReadInstructor } from './courseCatalogReadInstructor'
+import type { CourseCatalogReadOfferingDepartment } from './courseCatalogReadOfferingDepartment'
+import type { CourseCatalogReadTotalCredits } from './courseCatalogReadTotalCredits'
 
 export interface CourseCatalogRead {
   id: number
   course_name: CourseCatalogReadCourseName
+  course_code: CourseCatalogReadCourseCode
+  credit_units: CourseCatalogReadCreditUnits
+  instructor: CourseCatalogReadInstructor
+  offering_department: CourseCatalogReadOfferingDepartment
+  total_credits: CourseCatalogReadTotalCredits
 }
