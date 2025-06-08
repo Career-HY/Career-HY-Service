@@ -48,3 +48,13 @@ def login(
     
     request.session["user_id"] = user.id
     return user
+
+
+@router.post("/logout")
+@log_api_call
+def logout(request: Request):
+    """
+    현재 로그인된 사용자의 세션을 삭제합니다.
+    """
+    request.session.clear()
+    return {"message": "로그아웃되었습니다"}
