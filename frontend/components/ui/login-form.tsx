@@ -27,16 +27,22 @@ export default function LoginForm() {
     }
 
     try {
+      console.log('📤 로그인 요청 시작')
       await loginMutation.mutateAsync({
         data: {
           email,
           pwd: password,
         },
       })
+      console.log('✅ 로그인 API 호출 성공')
 
-      // 로그인 성공 시 채팅 페이지로 리다이렉트
+      // 현재 쿠키 상태 확인
+      console.log('🍪 현재 document.cookie:', document.cookie)
+
+      console.log('🚀 채팅 페이지로 리다이렉트 시도')
       router.push('/chat')
     } catch (err: unknown) {
+      console.error('❌ 로그인 실패:', err)
       // 에러 처리
       const error = err as { response?: { status: number } }
       if (error.response?.status === 401) {

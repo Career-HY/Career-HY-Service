@@ -11,6 +11,10 @@ export const api = ky.create({
   },
   credentials: 'include', // 세션 쿠키 포함
   timeout: 120000, // 120초
+  retry: {
+    limit: 2,
+    methods: ['get', 'post', 'put', 'delete', 'patch'],
+  },
   hooks: {
     beforeError: [
       (error) => {
@@ -20,6 +24,12 @@ export const api = ky.create({
           error.message = `${response.status} ${response.statusText}`
         }
         return error
+      },
+    ],
+    beforeRequest: [
+      (request) => {
+        // CORS 관련 헤더 추가
+        request.headers.set('Origin', window.location.origin)
       },
     ],
   },

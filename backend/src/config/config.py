@@ -19,6 +19,11 @@ class Settings:
     # CORS 설정 - 쉼표로 구분된 도메인 목록
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS")
     
+    # 세션 설정
+    SESSION_COOKIE_DOMAIN: str = None if DEBUG else os.getenv("SESSION_COOKIE_DOMAIN")  # 개발환경에서는 None, 운영환경에서는 환경변수 값 사용
+    SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
+    SESSION_COOKIE_SAMESITE: str = os.getenv("SESSION_COOKIE_SAMESITE", "none")
+    
     # LLM Service 설정
     LLM_SERVICE_URL: str = os.getenv("LLM_SERVICE_URL")
     LLM_REQUEST_TIMEOUT: float = 30.0
