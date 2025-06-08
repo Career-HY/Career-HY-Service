@@ -1,14 +1,5 @@
-import { X } from 'lucide-react'
-
-interface Course {
-  id: number
-  course_name: string
-  course_code: string
-  credit_units: string
-  instructor: string
-  offering_department: string
-  total_credits: string | null
-}
+import { Trash2 } from 'lucide-react'
+import { Course } from '@/types/course'
 
 interface Props {
   courses: Course[]
@@ -47,7 +38,7 @@ export default function SelectedCourses({
             onClick={() => onRemoveCourse(course.id)}
             disabled={disabled}
           >
-            <X className="h-4 w-4 text-gray-500" />
+            <Trash2 className="h-4 w-4 text-gray-500" />
           </button>
         </div>
       ))}

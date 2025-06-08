@@ -23,18 +23,15 @@ import SelectedCourses from '@/components/profile/SelectedCourses'
 import { useProfile } from '@/hooks/useProfile'
 import { editProfileProfilesPatch } from '@/lib/api/generated/profiles/profiles'
 import { useQueryClient } from '@tanstack/react-query'
-import type { CourseCatalogSearchResult } from '@/lib/api/generated/model'
+import {
+  type CourseCatalogRead,
+  type CourseCatalogSearchResult,
+} from '@/lib/api/generated/model'
+import { Course } from '@/types/course'
 
-interface Course {
-  id: number
-  course_name: string
-  course_code: string
-  credit_units: string
-  instructor: string
-  offering_department: string
-}
-
-function mapCourseCatalogToCourse(catalog: CourseCatalogSearchResult): Course {
+const mapCourseCatalogToCourse = (
+  catalog: CourseCatalogRead | CourseCatalogSearchResult
+): Course => {
   return {
     id: catalog.id,
     course_name: catalog.course_name || '',
@@ -42,6 +39,7 @@ function mapCourseCatalogToCourse(catalog: CourseCatalogSearchResult): Course {
     credit_units: catalog.credit_units || '',
     instructor: catalog.instructor || '',
     offering_department: catalog.offering_department || '',
+    total_credits: catalog.total_credits?.toString() || null,
   }
 }
 

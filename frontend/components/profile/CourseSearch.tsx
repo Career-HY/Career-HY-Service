@@ -4,15 +4,7 @@ import { Input } from '@/components/shadcn/input'
 import { Button } from '@/components/shadcn/button'
 import { searchCourseCatalogCoursesSearchGet } from '@/lib/api/generated/courses/courses'
 import { useDebounce } from '@/hooks/useDebounce'
-
-interface Course {
-  id: number
-  course_name: string
-  course_code: string
-  credit_units: string
-  instructor: string
-  offering_department: string
-}
+import { Course } from '@/types/course'
 
 interface Props {
   onAddCourse: (course: Course) => void
