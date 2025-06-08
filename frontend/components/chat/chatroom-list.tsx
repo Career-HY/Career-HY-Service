@@ -33,7 +33,7 @@ export default function ChatroomList({
   onTitleChange,
 }: ChatroomListProps) {
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto dark-scrollbar">
       <div className="px-2">
         {isLoading && !isCollapsed && (
           <div className="p-3 text-center text-gray-400 text-sm">
