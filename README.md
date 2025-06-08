@@ -3,6 +3,7 @@
 
 **맞춤 채용공고 추천 RAG 시스템**
 
+https://careerhy.com/
 
 <br>
 
