@@ -14,34 +14,6 @@ interface Course {
   offering_department: string
 }
 
-// 더미 데이터
-const DUMMY_SEARCH_RESULTS = [
-  {
-    id: 1,
-    course_name: '인공지능과 기계학습',
-    course_code: 'CS4001',
-    credit_units: '3',
-    instructor: '김교수',
-    offering_department: '컴퓨터공학과',
-  },
-  {
-    id: 2,
-    course_name: '웹 프로그래밍',
-    course_code: 'CS3002',
-    credit_units: '3',
-    instructor: '이교수',
-    offering_department: '소프트웨어학과',
-  },
-  {
-    id: 3,
-    course_name: '데이터베이스 시스템',
-    course_code: 'CS3003',
-    credit_units: '3',
-    instructor: '박교수',
-    offering_department: '컴퓨터공학과',
-  },
-]
-
 interface Props {
   onAddCourse: (course: Course) => void
   disabled?: boolean
