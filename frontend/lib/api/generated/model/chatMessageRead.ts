@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ChatMessageReadContent } from './chatMessageReadContent'
+import type { ChatMessageReadRecommendedJobs } from './chatMessageReadRecommendedJobs'
 
 /**
  * 채팅 메시지 조회 응답 스키마
@@ -14,5 +15,6 @@ export interface ChatMessageRead {
   chat_room_id: number
   sender: string
   content?: ChatMessageReadContent
+  recommended_jobs?: ChatMessageReadRecommendedJobs
   created_at: string
 }
