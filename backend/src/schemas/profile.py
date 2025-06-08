@@ -41,8 +41,13 @@ class CertificationUpdate(BaseModel):
 
 class CourseCatalogRead(BaseModel):
     id: int
-    
     course_name: Optional[str]
+    course_code: Optional[str]
+    credit_units: Optional[str]
+    instructor: Optional[str]
+    offering_department: Optional[str]
+    total_credits: Optional[float]
+    
     model_config = ConfigDict(from_attributes=True)
 
 class ProfileRead(BaseModel):
