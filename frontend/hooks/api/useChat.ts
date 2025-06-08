@@ -17,10 +17,16 @@ export function useChatActions(chatroomId: number) {
   const sendMessageMutation = useSendMessage(chatroomId)
 
   const sendMessage = async (message: string) => {
-    return await sendMessageMutation.mutateAsync({
-      chatroomId,
-      data: { message },
-    })
+    try {
+      const response = await sendMessageMutation.mutateAsync({
+        chatroomId,
+        data: { message },
+      })
+      return response
+    } finally {
+      // mutation 상태 초기화
+      sendMessageMutation.reset()
+    }
   }
 
   return {

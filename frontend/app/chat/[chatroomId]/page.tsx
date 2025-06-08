@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useChatroomDetail, useChatActions } from '@/hooks/api'
 import { MessageList, ChatInput } from '@/components/chat'
 import type { RecommendedJob, ChatMessageRead } from '@/lib/api/generated/model'
+import { pendingMessage, clearPendingMessage } from '@/store/chat'
 
 interface ApiResponse {
   user_message: string
@@ -82,12 +83,22 @@ const dummyMessages: Message[] = [
 
 export default function ChatroomPage() {
   const params = useParams()
-  const searchParams = useSearchParams()
   const chatroomId = Number(params.chatroomId)
-  const initialMessage = searchParams.get('initialMessage')
 
   const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // 컴포넌트 마운트 시 pendingMessage가 있으면 초기 메시지로 설정
+    if (pendingMessage && pendingMessage.chatroomId === chatroomId) {
+      const userMessage: Message = {
+        id: Date.now(),
+        sender: 'user',
+        content: pendingMessage.message,
+        timestamp: new Date().toLocaleString(),
+      }
+      return [userMessage]
+    }
+    return []
+  })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 123번은 더미데이터, 나머지는 실제 API 호출
@@ -98,43 +109,6 @@ export default function ChatroomPage() {
     useChatroomDetail(chatroomId, !isDemoRoom)
 
   const { sendMessage: sendMessageAPI, isSending } = useChatActions(chatroomId)
-
-  // 초기 메시지 설정
-  useEffect(() => {
-    if (isDemoRoom) {
-      // 데모 채팅방: 더미 데이터 사용
-      setMessages(dummyMessages)
-    } else if (chatroomData?.messages) {
-      // 실제 API 데이터 변환
-      const convertedMessages: Message[] = chatroomData.messages.map(
-        (msg: ChatMessageRead) => {
-          if (msg.sender === 'user') {
-            return {
-              id: msg.id,
-              sender: 'user',
-              content: msg.content || '',
-              timestamp: new Date(msg.created_at).toLocaleString(),
-            }
-          } else {
-            // AI 메시지는 apiResponse 구조로 변환
-            return {
-              id: msg.id,
-              sender: 'assistant',
-              content: '',
-              apiResponse: {
-                user_message: '', // 이전 사용자 메시지 (필요시 찾아서 연결)
-                llm_response: msg.content || '',
-                recommended_jobs: [], // 기존 메시지에는 추천 공고가 없을 수 있음
-                created_at: msg.created_at,
-              },
-              timestamp: new Date(msg.created_at).toLocaleString(),
-            }
-          }
-        }
-      )
-      setMessages(convertedMessages)
-    }
-  }, [isDemoRoom, chatroomData])
 
   const handleSendMessage = useCallback(
     async (messageText: string) => {
@@ -211,15 +185,89 @@ export default function ChatroomPage() {
     [isDemoRoom, isSending, sendMessageAPI]
   )
 
-  // URL 파라미터로 전달된 초기 메시지가 있다면 자동 전송
+  // pendingMessage 처리
   useEffect(() => {
-    if (initialMessage && !isDemoRoom) {
-      handleSendMessage(initialMessage)
+    const processPendingMessage = async () => {
+      if (
+        pendingMessage &&
+        pendingMessage.chatroomId === chatroomId &&
+        !isDemoRoom
+      ) {
+        const messageText = pendingMessage.message
+        clearPendingMessage()
 
-      // 초기 메시지 처리 후 URL 정리 (브라우저 히스토리에 남지 않도록)
-      window.history.replaceState({}, '', `/chat/${chatroomId}`)
+        try {
+          const response = await sendMessageAPI(messageText)
+
+          if (response) {
+            const assistantMessage: Message = {
+              id: Date.now() + 1,
+              sender: 'assistant',
+              content: '',
+              apiResponse: {
+                user_message: response.user_message || messageText,
+                llm_response: response.llm_response || '',
+                recommended_jobs: response.recommended_jobs || [],
+                created_at: response.created_at || new Date().toISOString(),
+              },
+              timestamp: new Date().toLocaleString(),
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+          }
+        } catch (error) {
+          console.error('메시지 전송 실패:', error)
+          const errorMessage: Message = {
+            id: Date.now() + 1,
+            sender: 'assistant',
+            content: '',
+            apiResponse: {
+              user_message: messageText,
+              llm_response:
+                '죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.',
+              recommended_jobs: [],
+              created_at: new Date().toISOString(),
+            },
+            timestamp: new Date().toLocaleString(),
+          }
+          setMessages((prev) => [...prev, errorMessage])
+        }
+      }
     }
-  }, [initialMessage, isDemoRoom, handleSendMessage, chatroomId])
+
+    processPendingMessage()
+  }, [chatroomId, isDemoRoom, sendMessageAPI])
+
+  // 채팅 히스토리 로드
+  useEffect(() => {
+    if (!isDemoRoom && chatroomData?.messages && messages.length === 0) {
+      const convertedMessages: Message[] = chatroomData.messages.map(
+        (msg: ChatMessageRead) => {
+          if (msg.sender === 'user') {
+            return {
+              id: msg.id,
+              sender: 'user',
+              content: msg.content || '',
+              timestamp: new Date(msg.created_at).toLocaleString(),
+            }
+          } else {
+            return {
+              id: msg.id,
+              sender: 'assistant',
+              content: '',
+              apiResponse: {
+                user_message: '',
+                llm_response: msg.content || '',
+                recommended_jobs: [],
+                created_at: msg.created_at,
+              },
+              timestamp: new Date(msg.created_at).toLocaleString(),
+            }
+          }
+        }
+      )
+      setMessages(convertedMessages)
+    }
+  }, [isDemoRoom, chatroomData, messages.length])
 
   // 메시지 목록 하단으로 스크롤
   const scrollToBottom = () => {
