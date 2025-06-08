@@ -7,6 +7,7 @@ import ChatHeader from '@/components/chat/chat-header'
 import ExampleQuestions from '@/components/chat/example-questions'
 import ChatInput from '@/components/chat/chat-input'
 import ChatFooter from '@/components/chat/chat-footer'
+import { setPendingMessage } from '@/store/chat'
 
 export default function ChatPage() {
   const router = useRouter()
@@ -34,17 +35,17 @@ export default function ChatPage() {
     setIsProcessing(true)
 
     try {
-      // 1. 새 채팅방 생성 (날짜+시간 이름으로)
+      // 1. 새 채팅방 생성
       const title = generateChatroomTitle()
       const newChatroom = await createMutation.mutateAsync({
         data: { title },
       })
 
-      // 2. 채팅방으로 이동하면서 초기 메시지를 전달
-      // 개별 채팅방 페이지에서 initialMessage를 받아서 자동 전송함
-      router.push(
-        `/chat/${newChatroom.id}?initialMessage=${encodeURIComponent(messageText)}`
-      )
+      // 2. 전역 상태에 메시지 저장
+      setPendingMessage(newChatroom.id, messageText)
+
+      // 3. 채팅방으로 이동
+      router.push(`/chat/${newChatroom.id}`)
     } catch (error) {
       console.error('채팅방 생성 실패:', error)
     } finally {
