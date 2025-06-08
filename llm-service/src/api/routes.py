@@ -47,10 +47,13 @@ router = APIRouter()
 async def generate_llm_response(request: LLMRequest):
     """LLM 응답을 생성합니다."""
     try:
+        # 프로필에 query 설정 (Pydantic copy 메서드 사용)
+        profile_with_query = request.profile.copy(update={'query': request.query})
+
         # Ingestion 서비스에서 관련 문서 검색
         ingestion_client = IngestionClient()
         relevant_docs = await ingestion_client.retrieve_documents(
-            request.profile
+            profile_with_query
         )
 
         # LLM 서비스로 응답 생성
@@ -58,7 +61,7 @@ async def generate_llm_response(request: LLMRequest):
         response = await llm_service.generate_response(
             query=request.query, 
             documents=relevant_docs,
-            profile=request.profile
+            profile=profile_with_query
         )
 
         return response

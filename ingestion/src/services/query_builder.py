@@ -1,7 +1,7 @@
 """
 사용자 프로필 기반 검색 쿼리 생성 모듈
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from api.models import CourseInfo  # CourseInfo 모델 import 추가
 
 
@@ -13,7 +13,8 @@ class ProfileQueryBuilder:
         major: str, 
         catalogs: List[CourseInfo],  # 타입 힌트를 CourseInfo로 변경
         interest_job: List[str], 
-        certification: List[str]
+        certification: List[str],
+        query: Optional[str] = None  # 사용자 질문 추가
     ) -> str:
         """
         사용자 프로필 기반 검색 쿼리 생성
@@ -23,11 +24,16 @@ class ProfileQueryBuilder:
             catalogs: 강의 목록 (CourseInfo 객체 리스트)
             interest_job: 관심 직무 목록  
             certification: 자격증 목록
+            query: 사용자 질문 (선택적)
             
         Returns:
             str: 생성된 검색 쿼리
         """
         query_parts = []
+
+        # 사용자 질문 추가 (있는 경우 최상단에 배치)
+        if query:
+            query_parts.append(f"질문: {query}")
 
         # 전공 정보 추가
         if major:
