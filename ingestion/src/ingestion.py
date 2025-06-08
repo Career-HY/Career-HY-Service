@@ -28,5 +28,5 @@ app.include_router(router)
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to Career-Hi Ingestion API! 6/8 08:30 test",
+        "message": "Welcome to Career-Hi Ingestion API! 6/8 09:20 test",
     }
