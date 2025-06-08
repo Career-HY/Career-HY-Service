@@ -10,6 +10,7 @@ export const api = ky.create({
     'Content-Type': 'application/json',
   },
   credentials: 'include', // 세션 쿠키 포함
+  timeout: 120000, // 120초
   hooks: {
     beforeError: [
       (error) => {
