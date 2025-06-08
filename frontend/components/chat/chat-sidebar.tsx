@@ -113,7 +113,7 @@ export default function ChatSidebar({
     <div
       className={`bg-gray-900 text-white transition-all duration-300 ${
         isCollapsed ? 'w-16' : 'w-64'
-      } flex flex-col`}
+      } flex flex-col h-full`}
     >
       <SidebarHeader
         isCollapsed={isCollapsed}
