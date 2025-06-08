@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 // 인증이 필요하지 않은 public 경로들
 const publicPaths = ['/', '/signup']
 
+
 // API 요청 경로
 const apiPaths = ['/api/']
 
@@ -13,33 +14,45 @@ const staticPaths = ['/_next/', '/images/']
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // API 요청이나 정적 파일 요청은 통과
-  if (
-    apiPaths.some((path) => pathname.startsWith(path)) ||
-    staticPaths.some((path) => pathname.startsWith(path))
-  ) {
+
+  console.log('🚀 미들웨어 실행 - 현재 경로:', pathname)
+  console.log('📝 전체 쿠키 목록:', request.cookies.getAll())
+
+  // 정적 파일 요청은 통과
+  if (staticPaths.some((path) => pathname.startsWith(path))) {
+    console.log('✅ 정적 파일 요청 - 통과')
     return NextResponse.next()
   }
-
-  // 세션 토큰 확인
-  const token = request.cookies.get('session')
-
-  // 이미 로그인된 상태에서 홈페이지(로그인 페이지)나 회원가입 페이지 접근 시 채팅 페이지로 리다이렉트
-  //   if (token && publicPaths.includes(pathname)) {
-  //     const chatUrl = new URL('/chat', request.url)
-  //     return NextResponse.redirect(chatUrl)
-  //   }
 
   // public 경로는 세션 체크 없이 통과
   if (publicPaths.includes(pathname)) {
+    console.log('✅ public 경로 - 통과')
     return NextResponse.next()
   }
 
-  // 인증이 필요한 페이지에서 토큰이 없으면 홈(로그인 페이지)으로 리다이렉트
-  if (!token) {
+  // 세션 토큰 확인 (값이 존재하고 비어있지 않은지 확인)
+  const sessionCookie = request.cookies.get('session')
+  console.log('🔑 세션 쿠키:', sessionCookie)
+  if (sessionCookie) {
+    console.log('📦 세션 쿠키 상세 정보:', {
+      name: sessionCookie.name,
+      value: sessionCookie.value,
+    })
+  }
+
+  const hasValidSession =
+    sessionCookie && sessionCookie.value && sessionCookie.value.length > 0
+
+  // 유효한 세션이 없으면 홈(로그인 페이지)으로 리다이렉트
+  if (!hasValidSession) {
+    console.log('❌ 유효하지 않은 세션 - 홈으로 리다이렉트')
+
     const homeUrl = new URL('/', request.url)
     return NextResponse.redirect(homeUrl)
   }
+
+
+  console.log('✅ 유효한 세션 확인 - 통과')
 
   return NextResponse.next()
 }
@@ -48,11 +61,12 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all page routes except:
      * 1. _next/static (static files)
      * 2. _next/image (image optimization files)
      * 3. favicon.ico (favicon file)
+     * 4. API routes
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api).*)',
   ],
 }

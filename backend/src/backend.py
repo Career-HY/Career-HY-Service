@@ -28,8 +28,9 @@ setup_logging()
 app.add_middleware(
     SessionMiddleware, 
     secret_key=settings.SECRET_KEY,
-    same_site='none',
-    https_only=True
+    same_site=settings.SESSION_COOKIE_SAMESITE,
+    https_only=settings.SESSION_COOKIE_SECURE,
+    domain=settings.SESSION_COOKIE_DOMAIN
 )
 app.include_router(user.router)
 app.include_router(profile.router)

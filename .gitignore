@@ -18,3 +18,6 @@ ingestion/data/
 
 # 파이썬 캐시 파일
 __pycache__/
+
+# 노드 모듈
+node_modules/
