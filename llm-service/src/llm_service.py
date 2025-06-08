@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router
 from src.config.config import settings
+from src.utils.logging import setup_logging
+
+# 로깅 설정 초기화
+setup_logging()
 
 app = FastAPI(
     title="Career-Hi LLM Service",

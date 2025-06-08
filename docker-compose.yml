@@ -15,7 +15,7 @@ services:
     environment:
       - VECTOR_STORE_PATH=/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma
     volumes:
-      - /home/ubuntu/carrer-hi-data/ingestion:/app/data
+      - ./ingestion/data:/app/data
     ports:
       - "5002:5002"
 
