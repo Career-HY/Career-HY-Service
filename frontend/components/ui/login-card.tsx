@@ -4,7 +4,6 @@ import { ReactNode } from 'react'
 interface LoginCardProps {
   title: string
   subtitle1: string
-  subtitle2: string
   description: string
   children: ReactNode
   bottomLink: ReactNode
@@ -13,7 +12,6 @@ interface LoginCardProps {
 export default function LoginCard({
   title,
   subtitle1,
-  subtitle2,
   description,
   children,
   bottomLink,
@@ -33,7 +31,6 @@ export default function LoginCard({
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
           <p className="text-gray-600 mb-1">{subtitle1}</p>
-          <p className="text-gray-600 font-medium">{subtitle2}</p>
           <p className="text-sm text-gray-500 mt-2">{description}</p>
         </div>
 

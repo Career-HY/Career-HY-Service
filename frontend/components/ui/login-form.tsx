@@ -67,10 +67,9 @@ export default function LoginForm() {
 
   return (
     <LoginCard
-      title="Career-HY"
-      subtitle1="한양대학교 취업지원 포털에"
-      subtitle2="오신 것을 환영합니다."
-      description="Hanyang Career Support Portal"
+      title="로그인"
+      subtitle1="Career-HY에 오신 것을 환영합니다!"
+      description="취업 준비를 함께 시작해보세요"
       bottomLink={bottomLink}
     >
       <ErrorMessage message={error} />
