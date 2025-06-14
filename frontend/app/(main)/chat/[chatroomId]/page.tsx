@@ -8,6 +8,7 @@ import type { RecommendedJob } from '@/lib/api/generated/model'
 import { pendingMessage, clearPendingMessage } from '@/store/chat'
 
 interface ApiResponse {
+  id?: number
   user_message: string
   llm_response: string
   recommended_jobs: RecommendedJob[]
@@ -146,6 +147,7 @@ export default function ChatroomPage() {
               sender: 'llm',
               content: '',
               apiResponse: {
+                id: response.id,
                 user_message: response.user_message || messageText,
                 llm_response: response.llm_response || '',
                 recommended_jobs: response.recommended_jobs || [],
