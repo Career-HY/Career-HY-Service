@@ -125,8 +125,7 @@ export default function SignupForm() {
   return (
     <LoginCard
       title="회원가입"
-      subtitle1="Career-HY에 오신 것을"
-      subtitle2="환영합니다!"
+      subtitle1="Career-HY에 오신 것을 환영합니다!"
       description="취업 준비를 함께 시작해보세요"
       bottomLink={bottomLink}
     >

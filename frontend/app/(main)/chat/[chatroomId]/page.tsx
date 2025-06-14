@@ -224,7 +224,7 @@ export default function ChatroomPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full">
       {/* 메시지 영역 */}
       {isLoadingChatroom ? (
         <div className="flex justify-center items-center h-full">
@@ -235,7 +235,7 @@ export default function ChatroomPage() {
       )}
 
       {/* 입력 영역 */}
-      <div className="border-t border-gray-200 p-6 bg-white">
+      <div className="border-t border-gray-200 p-6">
         <ChatInput
           message={message}
           setMessage={setMessage}

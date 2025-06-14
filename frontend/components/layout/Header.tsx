@@ -31,7 +31,7 @@ export default function Header() {
           <Button
             variant="ghost"
             size="sm"
-            className="hover:bg-gray-200/70"
+            className="hover:bg-gray-200/70 bg-white/80 backdrop-blur-sm"
             asChild
           >
             <Link href="/profile" className="flex items-center space-x-1">
@@ -43,7 +43,7 @@ export default function Header() {
           <Button
             variant="ghost"
             size="sm"
-            className="hover:bg-gray-200/70"
+            className="hover:bg-gray-200/70 bg-white/80 backdrop-blur-sm"
             disabled
           >
             <Bookmark className="h-4 w-4 mr-1" />
@@ -53,7 +53,7 @@ export default function Header() {
           <Button
             variant="ghost"
             size="sm"
-            className="hover:bg-gray-200/70"
+            className="hover:bg-gray-200/70 bg-white/80 backdrop-blur-sm"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4 mr-1" />
