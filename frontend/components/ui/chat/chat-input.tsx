@@ -33,18 +33,8 @@ export default function ChatInput({
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="메시지를 입력하세요..."
-            className="flex-1 resize-none border-0 bg-transparent px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none"
+            className="flex-1 border-0 bg-transparent px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none h-14 resize-none"
             rows={1}
-            style={{
-              minHeight: '52px',
-              maxHeight: '200px',
-              height: 'auto',
-            }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement
-              target.style.height = 'auto'
-              target.style.height = target.scrollHeight + 'px'
-            }}
             disabled={isLoading}
           />
           <button
