@@ -33,7 +33,7 @@ export default function ChatInput({
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="메시지를 입력하세요..."
-            className="flex-1 border-0 bg-transparent px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none h-14 resize-none"
+            className="flex-1 border-0 bg-transparent px-4 py-4 text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none h-14 resize-none"
             rows={1}
             disabled={isLoading}
           />
