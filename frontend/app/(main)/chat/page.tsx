@@ -21,7 +21,12 @@ export default function ChatPage() {
   // 현재 날짜+시간으로 채팅방 이름 생성
   const generateChatroomTitle = () => {
     const now = new Date()
-    return `채팅 ${now.toLocaleString()}`
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hour = String(now.getHours()).padStart(2, '0')
+    const minute = String(now.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hour}:${minute}`
   }
 
   const handleExampleClick = (question: string) => {
