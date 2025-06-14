@@ -58,7 +58,7 @@ export default function ChatPage() {
         <h1 className="text-3xl font-bold">새 채팅</h1>
         <ProfileGuideCard />
 
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        <div className="flex-1 flex flex-col items-center justify-center">
           <div className="w-full max-w-4xl">
             <ChatHeader />
 
