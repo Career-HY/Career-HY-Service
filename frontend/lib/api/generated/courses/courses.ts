@@ -25,16 +25,6 @@ import type {
 
 import { customInstance } from '../../mutator'
 
-// null 값을 제거하는 유틸리티 함수
-const removeNullValues = (
-  params: SearchCourseCatalogCoursesSearchGetParams | undefined
-) => {
-  if (!params) return undefined
-  return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== null)
-  ) as Record<string, string | number | boolean>
-}
-
 /**
  * 수강편람에서 과목을 검색합니다.
 
@@ -53,7 +43,7 @@ export const searchCourseCatalogCoursesSearchGet = (
   return customInstance<CourseCatalogSearchResult[]>({
     url: `/courses/search`,
     method: 'GET',
-    params: removeNullValues(params),
+    params,
     signal,
   })
 }
