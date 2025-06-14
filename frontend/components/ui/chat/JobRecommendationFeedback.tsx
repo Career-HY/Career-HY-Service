@@ -1,20 +1,18 @@
 import React, { useState } from 'react'
 
 interface JobRecommendationFeedbackProps {
-  chatHistoryId: number
   probability: number // 0~1 사이 확률 (ex: 0.5)
   onSubmit: (rating: number, reason: string) => void
   disabled?: boolean
 }
 
 const JobRecommendationFeedback: React.FC<JobRecommendationFeedbackProps> = ({
-  chatHistoryId,
   probability,
   onSubmit,
   disabled = false,
 }) => {
   // 확률에 따라 렌더링 결정 (최초 마운트 시)
-  const [show, setShow] = useState(() => Math.random() < probability)
+  const [show] = useState(() => Math.random() < probability)
   const [rating, setRating] = useState<number>(0)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)

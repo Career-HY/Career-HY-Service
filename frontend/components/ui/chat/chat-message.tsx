@@ -108,7 +108,6 @@ export default function ChatMessage({
                   {/* 별점 평가 UI: chatHistoryId가 있으면 노출 */}
                   {typeof chatHistoryId === 'number' && (
                     <JobRecommendationFeedback
-                      chatHistoryId={chatHistoryId}
                       probability={FEEDBACK_PROBABILITY}
                       onSubmit={async (rating, reason) => {
                         return new Promise<void>((resolve, reject) => {

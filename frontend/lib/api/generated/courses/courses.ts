@@ -40,10 +40,20 @@ export const searchCourseCatalogCoursesSearchGet = (
   params?: SearchCourseCatalogCoursesSearchGetParams,
   signal?: AbortSignal
 ) => {
+  let safeParams: Record<string, string | number | boolean> | undefined =
+    undefined
+  if (params) {
+    const { q, limit, offset } = params
+    safeParams = {}
+    if (typeof q === 'string') safeParams.q = q
+    if (typeof limit === 'number') safeParams.limit = limit
+    if (typeof offset === 'number') safeParams.offset = offset
+    if (Object.keys(safeParams).length === 0) safeParams = undefined
+  }
   return customInstance<CourseCatalogSearchResult[]>({
     url: `/courses/search`,
     method: 'GET',
-    params,
+    params: safeParams,
     signal,
   })
 }
