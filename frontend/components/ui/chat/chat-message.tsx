@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown'
 import JobRecommendations from './job-recommendations'
 import type { RecommendedJob } from '@/lib/api/generated/model'
-import JobRecommendationFeedback from '../ui/JobRecommendationFeedback'
+import JobRecommendationFeedback from './JobRecommendationFeedback'
 import { useSubmitJobRecommendationFeedbackFeedbackJobRecommendationPost } from '@/lib/api/generated/feedback/feedback'
 
 interface ApiResponse {

@@ -14,12 +14,12 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/shadcn/tabs'
-import BasicInfoCard from '@/components/profile/BasicInfoCard'
-import InterestsCard from '@/components/profile/InterestsCard'
-import ActivitiesCard from '@/components/profile/ActivitiesCard'
-import CertificationsCard from '@/components/profile/CertificationsCard'
-import CourseSearch from '@/components/profile/CourseSearch'
-import SelectedCourses from '@/components/profile/SelectedCourses'
+import BasicInfoCard from '@/components/ui/profile/BasicInfoCard'
+import InterestsCard from '@/components/ui/profile/InterestsCard'
+import ActivitiesCard from '@/components/ui/profile/ActivitiesCard'
+import CertificationsCard from '@/components/ui/profile/CertificationsCard'
+import CourseSearch from '@/components/ui/profile/CourseSearch'
+import SelectedCourses from '@/components/ui/profile/SelectedCourses'
 import { useProfile } from '@/hooks/useProfile'
 import { editProfileProfilesPatch } from '@/lib/api/generated/profiles/profiles'
 import { useQueryClient } from '@tanstack/react-query'

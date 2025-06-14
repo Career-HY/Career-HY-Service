@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useChatroomDetail, useChatActions } from '@/hooks/api'
-import { MessageList, ChatInput } from '@/components/chat'
+import { MessageList, ChatInput } from '@/components/ui/chat'
 import type { RecommendedJob } from '@/lib/api/generated/model'
 import { pendingMessage, clearPendingMessage } from '@/store/chat'
 

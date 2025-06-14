@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ChatSidebar } from '@/components/chat'
-import Header from '@/components/layout/Header'
+import { ChatSidebar } from '@/components/ui/chat'
+import Header from '@/components/ui/layout/Header'
 
 export default function MainLayout({
   children,

@@ -3,12 +3,12 @@
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useChatroomActions } from '@/hooks/api'
-import { ProfileGuideCard } from '@/components/chat'
+import { ProfileGuideCard } from '@/components/ui/chat'
 import { setPendingMessage } from '@/store/chat'
-import ChatInput from '@/components/chat/chat-input'
-import ChatHeader from '@/components/chat/chat-header'
-import ExampleQuestions from '@/components/chat/example-questions'
-import ChatFooter from '@/components/chat/chat-footer'
+import ChatInput from '@/components/ui/chat/chat-input'
+import ChatHeader from '@/components/ui/chat/chat-header'
+import ExampleQuestions from '@/components/ui/chat/example-questions'
+import ChatFooter from '@/components/ui/chat/chat-footer'
 
 export default function ChatPage() {
   const router = useRouter()

@@ -1,10 +1,10 @@
-import LoginForm from '@/components/ui/login-form'
-import Header from '@/components/home/header'
-import HeroSection from '@/components/home/hero-section'
-import FeatureList from '@/components/home/feature-list'
-import PortalCard from '@/components/home/portal-card'
-import ServiceNotice from '@/components/home/service-notice'
-import Footer from '@/components/home/footer'
+import LoginForm from '@/components/ui/home/login-form'
+import Header from '@/components/ui/home/header'
+import HeroSection from '@/components/ui/home/hero-section'
+import FeatureList from '@/components/ui/chat/feature-list'
+import PortalCard from '@/components/ui/home/portal-card'
+import ServiceNotice from '@/components/ui/home/service-notice'
+import Footer from '@/components/ui/home/footer'
 
 export default function Home() {
   return (
