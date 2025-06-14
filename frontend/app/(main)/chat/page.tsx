@@ -55,7 +55,7 @@ export default function ChatPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold">새 채팅</h1>
+        {/* <h1 className="text-3xl font-bold">새 채팅</h1> */}
         <ProfileGuideCard />
 
         <div className="flex-1 flex flex-col items-center justify-center">

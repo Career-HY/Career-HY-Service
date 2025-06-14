@@ -15,7 +15,7 @@ export default function ProfileGuideCard() {
   const router = useRouter()
 
   return (
-    <Card className="bg-blue-50 border-blue-200">
+    <Card className="bg-blue-50 border-blue-200 mt-8 mb-10">
       <CardHeader>
         <CardTitle className="text-blue-800">
           프로필 정보를 입력해주세요
