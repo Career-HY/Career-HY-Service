@@ -5,7 +5,7 @@ import JobRecommendationFeedback from '../ui/JobRecommendationFeedback'
 import { useSubmitJobRecommendationFeedbackFeedbackJobRecommendationPost } from '@/lib/api/generated/feedback/feedback'
 
 interface ApiResponse {
-  id?: number // 실제 DB id가 포함되어 있다고 가정
+  id?: number
   user_message: string
   llm_response: string
   recommended_jobs: RecommendedJob[]
@@ -43,7 +43,7 @@ export default function ChatMessage({
   timestamp,
 }: ChatMessageProps) {
   // 별점 평가 UI 노출 확률 (상위에서 props로 받을 수도 있음)
-  const FEEDBACK_PROBABILITY = 0.5
+  const FEEDBACK_PROBABILITY = 1.0 // 테스트를 위해 1.0으로 고정
 
   // orval mutation 훅
   const feedbackMutation =

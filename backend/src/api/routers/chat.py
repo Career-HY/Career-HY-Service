@@ -90,14 +90,15 @@ async def chat_with_llm(
             sender="llm",
             recommended_jobs=llm_response.recommended_jobs
         )
-        create_chat_message(db, chatroom_id, llm_message_data)
+        llm_message = create_chat_message(db, chatroom_id, llm_message_data)
         
         # 8. 응답 반환
         return ChatResponse(
+            id=llm_message.id,
             user_message=request.message,
             llm_response=llm_response.content,
             recommended_jobs=llm_response.recommended_jobs,
-            created_at=datetime.now()
+            created_at=llm_message.created_at
         )
         
     except HTTPException:
