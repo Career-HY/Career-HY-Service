@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from config.config import settings
 from api.routers import user, profile, course, chatroom, chat
+from api.routers import feedback
 from db.session import get_db
 from util.logging import setup_logging
 
@@ -37,6 +38,7 @@ app.include_router(profile.router)
 app.include_router(course.router)
 app.include_router(chatroom.router)
 app.include_router(chat.router)
+app.include_router(feedback.router)
 
 @app.get("/")
 def root():

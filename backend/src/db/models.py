@@ -1,6 +1,6 @@
 # models.py
 from sqlalchemy import (
-    Column, String, Integer, DateTime, Boolean, ForeignKey, Table, Text, Enum, DECIMAL, func, text, JSON
+    Column, String, Integer, DateTime, Boolean, ForeignKey, Table, Text, Enum, DECIMAL, func, text, JSON, UniqueConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -199,3 +199,22 @@ class ChatMessage(Base):
     
     # ——— 메시지-채팅방 참조 ———
     chatroom = relationship("Chatroom", back_populates="messages")
+
+
+class JobRecommendationFeedback(Base):
+    __tablename__ = "job_recommendation_feedback"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_history_id = Column(Integer, ForeignKey("chat_history.id"), nullable=False)
+    member_id = Column(String(36), ForeignKey("member.id"), nullable=False)
+    rating = Column(Integer, nullable=False)  # 1~5점
+    reason = Column(String(500), nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        # 한 사용자가 한 답변에 한 번만 평가 가능
+        UniqueConstraint('chat_history_id', 'member_id', name='uniq_feedback'),
+    )
+
+    # 관계 설정(옵션)
+    chat_history = relationship("ChatMessage")
+    member = relationship("Member")
