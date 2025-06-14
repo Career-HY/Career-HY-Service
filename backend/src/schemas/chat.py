@@ -21,6 +21,7 @@ class RecommendedJob(BaseModel):
 
 class ChatResponse(BaseModel):
     """채팅 응답 스키마"""
+    id: int = Field(..., description="채팅 답변(chat_history)의 PK")
     user_message: str = Field(..., description="사용자가 보낸 메시지")
     llm_response: str = Field(..., description="LLM 응답 내용")
     recommended_jobs: List[RecommendedJob] = Field(default=[], description="추천된 채용 공고 목록")

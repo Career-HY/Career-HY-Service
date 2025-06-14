@@ -13,7 +13,7 @@ interface ApiResponse {
 
 interface Message {
   id: number
-  sender: 'user' | 'assistant'
+  sender: 'user' | 'llm'
   content: string
   apiResponse?: ApiResponse
   timestamp: string
@@ -45,13 +45,13 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
                 content={message.content}
                 timestamp={message.timestamp}
               />
-            ) : (
+            ) : message.sender === 'llm' ? (
               <ChatMessage
                 content={message.content}
                 apiResponse={message.apiResponse}
                 timestamp={message.timestamp}
               />
-            )}
+            ) : null}
           </div>
         ))}
 

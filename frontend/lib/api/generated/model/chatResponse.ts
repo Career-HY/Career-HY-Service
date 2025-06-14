@@ -10,6 +10,8 @@ import type { RecommendedJob } from './recommendedJob'
  * 채팅 응답 스키마
  */
 export interface ChatResponse {
+  /** 채팅 답변(chat_history)의 PK */
+  id: number
   /** 사용자가 보낸 메시지 */
   user_message: string
   /** LLM 응답 내용 */

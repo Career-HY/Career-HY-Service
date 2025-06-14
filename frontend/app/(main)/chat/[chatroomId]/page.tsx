@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useChatroomDetail, useChatActions } from '@/hooks/api'
-import { MessageList, ChatInput } from '@/components/chat'
+import { MessageList, ChatInput } from '@/components/ui/chat'
 import type { RecommendedJob } from '@/lib/api/generated/model'
 import { pendingMessage, clearPendingMessage } from '@/store/chat'
 
 interface ApiResponse {
+  id?: number
   user_message: string
   llm_response: string
   recommended_jobs: RecommendedJob[]
@@ -16,7 +17,7 @@ interface ApiResponse {
 
 interface Message {
   id: number
-  sender: 'user' | 'assistant'
+  sender: 'user' | 'llm'
   content: string
   apiResponse?: ApiResponse
   timestamp: string
@@ -72,31 +73,48 @@ export default function ChatroomPage() {
       setMessages((prev) => [...prev, userMessage])
       setMessage('')
 
+      // 임시 llm 메시지 추가
+      const tempId = Date.now() + 1
+      const tempLlmMessage: Message = {
+        id: tempId,
+        sender: 'llm',
+        content: '',
+        apiResponse: undefined,
+        timestamp: new Date().toLocaleString(),
+      }
+      setMessages((prev) => [...prev, tempLlmMessage])
+
       // 실제 API 호출
       try {
         const response = await sendMessageAPI(messageText)
 
         if (response) {
-          const assistantMessage: Message = {
-            id: Date.now() + 1,
-            sender: 'assistant',
-            content: '',
-            apiResponse: {
-              user_message: response.user_message || messageText,
-              llm_response: response.llm_response || '',
-              recommended_jobs: response.recommended_jobs || [],
-              created_at: response.created_at || new Date().toISOString(),
-            },
-            timestamp: new Date().toLocaleString(),
-          }
-          setMessages((prev) => [...prev, assistantMessage])
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? {
+                    id: response.id, // 실제 DB id로 교체
+                    sender: 'llm',
+                    content: '',
+                    apiResponse: {
+                      id: response.id,
+                      user_message: response.user_message || messageText,
+                      llm_response: response.llm_response || '',
+                      recommended_jobs: response.recommended_jobs || [],
+                      created_at:
+                        response.created_at || new Date().toISOString(),
+                    },
+                    timestamp: new Date().toLocaleString(),
+                  }
+                : msg
+            )
+          )
         }
       } catch (error) {
         console.error('메시지 전송 실패:', error)
-        // 에러 메시지 표시
         const errorMessage: Message = {
-          id: Date.now() + 1,
-          sender: 'assistant',
+          id: Date.now() + 2,
+          sender: 'llm',
           content: '',
           apiResponse: {
             user_message: messageText,
@@ -126,9 +144,10 @@ export default function ChatroomPage() {
           if (response) {
             const assistantMessage: Message = {
               id: Date.now() + 1,
-              sender: 'assistant',
+              sender: 'llm',
               content: '',
               apiResponse: {
+                id: response.id,
                 user_message: response.user_message || messageText,
                 llm_response: response.llm_response || '',
                 recommended_jobs: response.recommended_jobs || [],
@@ -142,7 +161,7 @@ export default function ChatroomPage() {
           console.error('메시지 전송 실패:', error)
           const errorMessage: Message = {
             id: Date.now() + 1,
-            sender: 'assistant',
+            sender: 'llm',
             content: '',
             apiResponse: {
               user_message: messageText,
@@ -172,7 +191,7 @@ export default function ChatroomPage() {
 
       const convertedMessages: Message[] = []
 
-      // 메시지들을 순회하면서 user와 assistant 메시지 쌍으로 처리
+      // 메시지들을 순회하면서 user와 llm 메시지 쌍으로 처리
       for (let i = 0; i < sortedMessages.length; i++) {
         const msg = sortedMessages[i] as DBMessage
 
@@ -185,12 +204,12 @@ export default function ChatroomPage() {
             timestamp: new Date(msg.created_at).toLocaleString(),
           })
 
-          // 다음 메시지가 있고 assistant의 응답인 경우
+          // 다음 메시지가 있고 llm의 응답인 경우
           const nextMsg = sortedMessages[i + 1] as DBMessage
           if (nextMsg && nextMsg.sender === 'llm') {
             convertedMessages.push({
               id: nextMsg.id,
-              sender: 'assistant',
+              sender: 'llm',
               content: '',
               apiResponse: {
                 user_message: msg.content || '', // 이전 사용자 메시지

@@ -1,8 +1,11 @@
 import ReactMarkdown from 'react-markdown'
 import JobRecommendations from './job-recommendations'
 import type { RecommendedJob } from '@/lib/api/generated/model'
+import JobRecommendationFeedback from './JobRecommendationFeedback'
+import { useSubmitJobRecommendationFeedbackFeedbackJobRecommendationPost } from '@/lib/api/generated/feedback/feedback'
 
 interface ApiResponse {
+  id?: number
   user_message: string
   llm_response: string
   recommended_jobs: RecommendedJob[]
@@ -39,6 +42,19 @@ export default function ChatMessage({
   apiResponse,
   timestamp,
 }: ChatMessageProps) {
+  const FEEDBACK_PROBABILITY = (() => {
+    const env = process.env.NEXT_PUBLIC_FEEDBACK_PROBABILITY
+    const parsed = env ? parseFloat(env) : NaN
+    return !isNaN(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 0.5
+  })()
+
+  // orval mutation 훅
+  const feedbackMutation =
+    useSubmitJobRecommendationFeedbackFeedbackJobRecommendationPost()
+
+  // chat_history_id는 실제 DB id 사용
+  const chatHistoryId = apiResponse?.id
+
   return (
     <div className="w-full">
       <div className="p-6 text-gray-900">
@@ -87,7 +103,33 @@ export default function ChatMessage({
             {/* 추천 채용공고 */}
             {apiResponse.recommended_jobs &&
               apiResponse.recommended_jobs.length > 0 && (
-                <JobRecommendations jobs={apiResponse.recommended_jobs} />
+                <>
+                  <JobRecommendations jobs={apiResponse.recommended_jobs} />
+                  {/* 별점 평가 UI: chatHistoryId가 있으면 노출 */}
+                  {typeof chatHistoryId === 'number' && (
+                    <JobRecommendationFeedback
+                      probability={FEEDBACK_PROBABILITY}
+                      onSubmit={async (rating, reason) => {
+                        return new Promise<void>((resolve, reject) => {
+                          feedbackMutation.mutate(
+                            {
+                              data: {
+                                chat_history_id: chatHistoryId,
+                                rating,
+                                reason,
+                              },
+                            },
+                            {
+                              onSuccess: () => resolve(),
+                              onError: (err) => reject(err),
+                            }
+                          )
+                        })
+                      }}
+                      disabled={feedbackMutation.isPending}
+                    />
+                  )}
+                </>
               )}
           </>
         ) : (
