@@ -42,8 +42,11 @@ export default function ChatMessage({
   apiResponse,
   timestamp,
 }: ChatMessageProps) {
-  // 별점 평가 UI 노출 확률 (상위에서 props로 받을 수도 있음)
-  const FEEDBACK_PROBABILITY = 1.0 // 테스트를 위해 1.0으로 고정
+  const FEEDBACK_PROBABILITY = (() => {
+    const env = process.env.NEXT_PUBLIC_FEEDBACK_PROBABILITY
+    const parsed = env ? parseFloat(env) : NaN
+    return !isNaN(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 0.5
+  })()
 
   // orval mutation 훅
   const feedbackMutation =
