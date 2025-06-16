@@ -286,7 +286,7 @@ class LLMPromptingService:
             if chat_history:
                 history_text = "\n".join([
                     f"{msg['role']}: {msg['content']}"
-                    for msg in chat_history[-5:]  # 최근 5개 메시지만 사용
+                    for msg in chat_history[-10:]
                 ])
                 history_text = f"\n이전 대화 내용:\n{history_text}\n"
             

@@ -61,9 +61,10 @@ async def generate_llm_response(request: LLMRequest):
         response = await llm_service.generate_response(
             query=request.query, 
             documents=relevant_docs,
-            profile=profile_with_query
+            profile=profile_with_query,
+            chat_history=request.chat_history
         )
-
+ 
         return response
     
     except Exception as e:
