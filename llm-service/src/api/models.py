@@ -46,7 +46,6 @@ class RetrievalRequest(BaseModel):
     certification: List[str]
 
 
-<<<<<<< HEAD
 class ChatHistoryMessage(BaseModel):
     role: str = Field(..., description="메시지 발신자: user 또는 llm")
     content: str = Field(..., description="메시지 내용")
@@ -61,8 +60,6 @@ class LLMRequest(BaseModel):
     chat_history: Optional[List[Dict[str, Any]]] = None  # 대화 이력 (유연하게 허용)
 
 
-=======
->>>>>>> origin/feat/#118/history-context
 class RecommendedJob(BaseModel):
     """추천된 채용공고"""
     
