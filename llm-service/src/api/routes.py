@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 from src.api.models import LLMRequest, LLMResponse
-from src.services.llm_prompting import LLMPromptingService
+from src.services.llm_prompting import LLMPromptingService, IntentType
 from src.config.config import settings
 from src.services.ingestion_client import IngestionClient
 import logging
@@ -82,7 +82,7 @@ async def generate_llm_response(request: LLMRequest):
         # --------------------------------------------------
         # 2) 의도에 따라 문서 검색 여부 결정
         # --------------------------------------------------
-        if intent == "SEARCH_NEEDED":
+        if intent == IntentType.SEARCH_NEEDED:
             ingestion_client = IngestionClient()
             relevant_docs = await ingestion_client.retrieve_documents(profile_with_query)
         else:

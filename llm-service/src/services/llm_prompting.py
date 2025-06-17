@@ -17,6 +17,7 @@ from .prompt_templates import (
     INTENT_ROUTER_STATIC,
 )
 import logging
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,23 @@ logger = logging.getLogger(__name__)
 # -----------------------------
 # 모듈 상수
 # -----------------------------
-
 INTENT_HISTORY_LIMIT = 2          # 의도 분류 시 최근 대화 메시지 수
 CHAT_HISTORY_LIMIT = 10           # 프롬프트에 포함할 최대 대화 메시지 수
 MAX_RECOMMENDATIONS = 3           # LLM이 반환할 최대 추천 공고 수
 NUM_SEARCH_DOCS = 10              # 검색으로 전달되는 채용공고 수
 
+# -----------------------------
+# Intent Enum
+# -----------------------------
+class IntentType(str, Enum):
+    """사용자 질문 의도 종류"""
+    REJECT = "REJECT"
+    SEARCH_NEEDED = "SEARCH_NEEDED"
+    NO_SEARCH = "NO_SEARCH"
 
+# -----------------------------
 # LangChain with_structured_output을 위한 Pydantic 모델
+# -----------------------------
 class JobRecommendationResponse(BaseModel):
     """채용공고 추천 응답 구조"""
 
@@ -54,7 +64,9 @@ class JobRecommendationResponse(BaseModel):
         description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
     )
 
-
+# -----------------------------
+# LLMPromptingService
+# -----------------------------
 class LLMPromptingService:
     def __init__(self):
         """LLM 서비스를 초기화합니다."""
@@ -174,23 +186,23 @@ class LLMPromptingService:
             # 유효한 답변인지 확인
             if "REJECT" in result:
                 logger.info(f"❌ 의도 분류 결과: REJECT - 취업/채용과 무관한 질문")
-                return "REJECT"
+                return IntentType.REJECT
             elif "SEARCH_NEEDED" in result:
                 logger.info(f"🔍 의도 분류 결과: SEARCH_NEEDED - 채용공고 검색 필요")
-                return "SEARCH_NEEDED"
+                return IntentType.SEARCH_NEEDED
             elif "NO_SEARCH" in result:
                 logger.info(f"💬 의도 분류 결과: NO_SEARCH - 일반 취업 상담")
-                return "NO_SEARCH"
+                return IntentType.NO_SEARCH
             else:
                 # 애매한 경우 NO_SEARCH로 처리
                 logger.warning(
                     f"⚠️ 의도 분류 결과가 애매함: '{result}' -> NO_SEARCH로 처리"
                 )
-                return "NO_SEARCH"
+                return IntentType.NO_SEARCH
 
         except Exception as e:
             logger.warning(f"💥 의도 분류 실패, 안전하게 NO_SEARCH로 처리: {e}")
-            return "NO_SEARCH"
+            return IntentType.NO_SEARCH
 
     def _extract_recommended_jobs_from_function_call(
         self, function_args: Dict[str, Any], documents: List[JobPosting]
@@ -317,7 +329,7 @@ class LLMPromptingService:
         profile: RetrievalRequest,
         chat_history: Optional[List[Dict[str, Any]]] = None,
         *,
-        intent: Optional[str] = None,
+        intent: Optional[IntentType] = None,
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
@@ -344,14 +356,14 @@ class LLMPromptingService:
             if intent is None:
                 intent = await self._classify_query_intent(query, chat_history)
 
-            if intent == "REJECT":
+            if intent == IntentType.REJECT:
                 logger.info(f"🚫 REJECT 경로 - 거부 응답 반환")
                 return LLMResponse(
                     content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 서비스 이용이나 취업/채용 관련된 질문을 부탁드립니다.",
                     recommended_jobs=[],
                 )
 
-            elif intent == "NO_SEARCH":
+            elif intent == IntentType.NO_SEARCH:
                 logger.info(f"💬 NO_SEARCH 경로 - 일반 상담 응답 생성")
                 # ----- Consultation Response -----
                 response = await self._generate_consultation_response(
@@ -359,7 +371,7 @@ class LLMPromptingService:
                 )
                 return LLMResponse(**response)
 
-            elif intent == "SEARCH_NEEDED":
+            elif intent == IntentType.SEARCH_NEEDED:
                 logger.info(f"🔍 SEARCH_NEEDED 경로 - 채용공고 추천 응답 생성")
                 # ----- Recommendation Response -----
                 response = await self._generate_recommendation_response(
@@ -482,7 +494,7 @@ class LLMPromptingService:
 
     async def classify_query_intent(
         self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None
-    ) -> str:
+    ) -> IntentType:
         """외부에서 호출 가능한 의도 분류 함수.
 
         LLMPromptingService 내부 구현(_classify_query_intent)을 노출하지 않고도
