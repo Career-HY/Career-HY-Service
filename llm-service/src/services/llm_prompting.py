@@ -316,6 +316,8 @@ class LLMPromptingService:
         documents: List[JobPosting],
         profile: RetrievalRequest,
         chat_history: Optional[List[Dict[str, Any]]] = None,
+        *,
+        intent: Optional[str] = None,
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
@@ -339,7 +341,8 @@ class LLMPromptingService:
             base_prompt = self._build_base_prompt(profile_summary, history_text, query)
 
             # ----- Intent Classification -----
-            intent = await self._classify_query_intent(query, chat_history)
+            if intent is None:
+                intent = await self._classify_query_intent(query, chat_history)
 
             if intent == "REJECT":
                 logger.info(f"🚫 REJECT 경로 - 거부 응답 반환")
@@ -472,4 +475,18 @@ class LLMPromptingService:
         except Exception as e:
             logger.error(f"추천 응답 생성 실패: {str(e)}")
             raise
+
+    # --------------------------------------------------------------
+    # 외부 공개용: 의도 분류 래퍼 (검색 여부 판단용)
+    # --------------------------------------------------------------
+
+    async def classify_query_intent(
+        self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None
+    ) -> str:
+        """외부에서 호출 가능한 의도 분류 함수.
+
+        LLMPromptingService 내부 구현(_classify_query_intent)을 노출하지 않고도
+        라우트 레이어에서 문서 검색 필요 여부를 판단할 수 있게 해준다.
+        """
+        return await self._classify_query_intent(query, chat_history)
 

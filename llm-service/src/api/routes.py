@@ -68,19 +68,35 @@ async def generate_llm_response(request: LLMRequest):
         # 프로필에 query 설정 (Pydantic copy 메서드 사용)
         profile_with_query = request.profile.copy(update={'query': request.query})
 
-        # Ingestion 서비스에서 관련 문서 검색
-        ingestion_client = IngestionClient()
-        relevant_docs = await ingestion_client.retrieve_documents(
-            profile_with_query
+        # LLM 서비스 초기화
+        llm_service = LLMPromptingService()
+
+        # --------------------------------------------------
+        # 1) 의도 분류 선행 → 검색 필요 여부 판단
+        # --------------------------------------------------
+        intent = await llm_service.classify_query_intent(
+            request.query,
+            request.chat_history,
         )
 
-        # LLM 서비스로 응답 생성
-        llm_service = LLMPromptingService()
+        # --------------------------------------------------
+        # 2) 의도에 따라 문서 검색 여부 결정
+        # --------------------------------------------------
+        if intent == "SEARCH_NEEDED":
+            ingestion_client = IngestionClient()
+            relevant_docs = await ingestion_client.retrieve_documents(profile_with_query)
+        else:
+            relevant_docs = []
+
+        # --------------------------------------------------
+        # 3) 최종 응답 생성 (의도 전달)
+        # --------------------------------------------------
         response = await llm_service.generate_response(
-            query=request.query, 
+            query=request.query,
             documents=relevant_docs,
             profile=profile_with_query,
-            chat_history=request.chat_history
+            chat_history=request.chat_history,
+            intent=intent,
         )
 
         logger.info("✅ LLM 응답 생성 완료 | recommended_jobs=%s", len(response.recommended_jobs))
