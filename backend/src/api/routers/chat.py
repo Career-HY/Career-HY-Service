@@ -71,10 +71,16 @@ async def chat_with_llm(
         
         # 5. 최근 대화 이력 조회
         recent_messages = get_recent_chat_messages(db, chatroom_id, limit=5)
-        chat_history = [
-            {"role": msg.sender, "content": msg.content}
-            for msg in recent_messages
-        ]
+        # 메시지마다 recommended_jobs를 포함하여 전달
+        chat_history = []
+        for msg in recent_messages:
+            entry = {
+                "role": msg.sender,
+                "content": msg.content,
+            }
+            if msg.recommended_jobs:
+                entry["recommended_jobs"] = msg.recommended_jobs  # 추천 채용공고 포함
+            chat_history.append(entry)
         
         # 6. LLM-service에 요청 전송
         llm_client = LLMServiceClient()

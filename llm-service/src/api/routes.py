@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 from src.api.models import LLMRequest, LLMResponse
-from src.services.llm_prompting import LLMPromptingService
+from src.services.llm_prompting import LLMPromptingService, IntentType
 from src.config.config import settings
 from src.services.ingestion_client import IngestionClient
+import logging
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
 @router.post(
     "/generate-llm",
     response_model=LLMResponse,
@@ -46,27 +50,59 @@ router = APIRouter()
 )
 async def generate_llm_response(request: LLMRequest):
     """LLM 응답을 생성합니다."""
+    # -----------------------------
+    # 요청 수신 로깅
+    # -----------------------------
+    try:
+        logger.info(
+            "📥 /generate-llm 요청 수신 | query_len=%s | chat_history_len=%s",
+            len(request.query),
+            len(request.chat_history or []),
+        )
+        logger.debug("요청 본문: %s", request.model_dump())
+    except Exception:
+        # 로깅 중 오류가 나더라도 요청 처리는 계속
+        logger.warning("요청 로깅 중 오류가 발생했습니다.")
+
     try:
         # 프로필에 query 설정 (Pydantic copy 메서드 사용)
         profile_with_query = request.profile.copy(update={'query': request.query})
 
-        # Ingestion 서비스에서 관련 문서 검색
-        ingestion_client = IngestionClient()
-        relevant_docs = await ingestion_client.retrieve_documents(
-            profile_with_query
+        # LLM 서비스 초기화
+        llm_service = LLMPromptingService()
+
+        # --------------------------------------------------
+        # 1) 의도 분류 선행 → 검색 필요 여부 판단
+        # --------------------------------------------------
+        intent = await llm_service.classify_query_intent(
+            request.query,
+            request.chat_history,
         )
 
-        # LLM 서비스로 응답 생성
-        llm_service = LLMPromptingService()
+        # --------------------------------------------------
+        # 2) 의도에 따라 문서 검색 여부 결정
+        # --------------------------------------------------
+        if intent == IntentType.SEARCH_NEEDED:
+            ingestion_client = IngestionClient()
+            relevant_docs = await ingestion_client.retrieve_documents(profile_with_query)
+        else:
+            relevant_docs = []
+
+        # --------------------------------------------------
+        # 3) 최종 응답 생성 (의도 전달)
+        # --------------------------------------------------
         response = await llm_service.generate_response(
-            query=request.query, 
+            query=request.query,
             documents=relevant_docs,
             profile=profile_with_query,
-            chat_history=request.chat_history
+            chat_history=request.chat_history,
+            intent=intent,
         )
- 
+
+        logger.info("✅ LLM 응답 생성 완료 | recommended_jobs=%s", len(response.recommended_jobs))
         return response
     
     except Exception as e:
+        logger.error("💥 LLM 응답 생성 실패: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
