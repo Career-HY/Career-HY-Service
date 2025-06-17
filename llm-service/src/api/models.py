@@ -46,12 +46,18 @@ class RetrievalRequest(BaseModel):
     certification: List[str]
 
 
+class ChatHistoryMessage(BaseModel):
+    role: str
+    content: str
+    recommended_jobs: Optional[List[RecommendedJob]] = None
+
+
 class LLMRequest(BaseModel):
     """LLM 서비스 요청"""
 
     query: str = Field(..., description="사용자 질문")
     profile: RetrievalRequest = Field(..., description="사용자 프로필")
-    chat_history: Optional[List[Dict[str, str]]] = None  # [{"role": "user/llm", "content": "메시지"}]
+    chat_history: Optional[List[ChatHistoryMessage]] = None  # 각 메시지에 recommended_jobs 허용
 
 
 class RecommendedJob(BaseModel):
