@@ -284,8 +284,19 @@ class LLMPromptingService:
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
+                def format_msg(msg):
+                    base = f"{msg['role']}: {msg['content']}"
+                    if msg.get('recommended_jobs'):
+                        jobs = msg['recommended_jobs']
+                        if jobs:
+                            jobs_text = "\n".join([
+                                f"  - {job.get('title', '')} ({job.get('url', '')})\n    마감일: {job.get('deadline', '')}\n    사유: {job.get('recommendation_reason', '')}"
+                                for job in jobs
+                            ])
+                            base += f"\n추천 채용공고:\n{jobs_text}"
+                    return base
                 history_text = "\n".join([
-                    f"{msg['role']}: {msg['content']}"
+                    format_msg(msg)
                     for msg in chat_history[-10:]
                 ])
                 history_text = f"\n이전 대화 내용:\n{history_text}\n"
@@ -343,8 +354,19 @@ class LLMPromptingService:
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
+                def format_msg(msg):
+                    base = f"{msg['role']}: {msg['content']}"
+                    if msg.get('recommended_jobs'):
+                        jobs = msg['recommended_jobs']
+                        if jobs:
+                            jobs_text = "\n".join([
+                                f"  - {job.get('title', '')} ({job.get('url', '')})\n    마감일: {job.get('deadline', '')}\n    사유: {job.get('recommendation_reason', '')}"
+                                for job in jobs
+                            ])
+                            base += f"\n추천 채용공고:\n{jobs_text}"
+                    return base
                 history_text = "\n".join([
-                    f"{msg['role']}: {msg['content']}"
+                    format_msg(msg)
                     for msg in chat_history[-5:]  # 최근 5개 메시지만 사용
                 ])
                 history_text = f"\n이전 대화 내용:\n{history_text}\n"
