@@ -46,6 +46,18 @@ class RetrievalRequest(BaseModel):
     certification: List[str]
 
 
+class RecommendedJob(BaseModel):
+    """추천된 채용공고"""
+    
+    rec_idx: Optional[str] = None  
+    title: str
+    url: str
+    deadline: Optional[str] = None
+    start_date: Optional[str] = None  
+    crawling_time: Optional[str] = None  
+    recommendation_reason: str
+
+
 class ChatHistoryMessage(BaseModel):
     role: str
     content: str
@@ -57,19 +69,7 @@ class LLMRequest(BaseModel):
 
     query: str = Field(..., description="사용자 질문")
     profile: RetrievalRequest = Field(..., description="사용자 프로필")
-    chat_history: Optional[List[ChatHistoryMessage]] = None  # 각 메시지에 recommended_jobs 허용
-
-
-class RecommendedJob(BaseModel):
-    """추천된 채용공고"""
-    
-    rec_idx: Optional[str] = None  
-    title: str
-    url: str
-    deadline: Optional[str] = None
-    start_date: Optional[str] = None  
-    crawling_time: Optional[str] = None  
-    recommendation_reason: str
+    chat_history: Optional[List[ChatHistoryMessage]] = None 
 
 
 class LLMResponse(BaseModel):
