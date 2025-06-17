@@ -385,6 +385,7 @@ class LLMPromptingService:
     ) -> Dict:
         """문서 검색 없이 일반 취업 상담 응답을 생성합니다."""
         try:
+<<<<<<< HEAD
             # 이미 base_prompt 가 준비되어 있으면 그대로 사용, 아니면 기존 방식 유지
             if base_prompt is None:
                 profile_summary = self._create_profile_summary(profile)
@@ -393,6 +394,27 @@ class LLMPromptingService:
                     history_text = self._format_chat_history(chat_history, limit=10)
                     history_text = f"이전 대화 내용:\n{history_text}\n"
                 base_prompt = self._build_base_prompt(profile_summary, history_text, query)
+=======
+            # 사용자 프로필 정보 정리
+            profile_summary = f"""
+사용자 프로필:
+- 전공: {profile.major}
+- 관심 직무: {', '.join(profile.interest_job)}
+- 자격증: {', '.join(profile.certification)}
+- 수강 과목: {', '.join([course.course_name for course in profile.catalogs[:5]])}{"..." if len(profile.catalogs) > 5 else ""}
+"""
+            # 대화 이력 포맷팅
+            history_text = ""
+            if chat_history:
+                history_text = "\n".join([
+                    f"{msg['role']}: {msg['content']}"
+                    for msg in chat_history[-10:]
+                ])
+                history_text = f"\n이전 대화 내용:\n{history_text}\n"
+            
+            consultation_prompt = f"""
+당신은 취업 상담 전문가입니다. 사용자의 프로필을 고려하여 실용적이고 도움이 되는 조언을 제공해주세요.
+>>>>>>> origin/dev
 
             additional_guideline = (
                 "다음 형식으로 답변해주세요:\n"

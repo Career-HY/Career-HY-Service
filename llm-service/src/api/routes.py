@@ -82,8 +82,12 @@ async def generate_llm_response(request: LLMRequest):
             profile=profile_with_query,
             chat_history=request.chat_history
         )
+<<<<<<< HEAD
 
         logger.info("✅ LLM 응답 생성 완료 | recommended_jobs=%s", len(response.recommended_jobs))
+=======
+ 
+>>>>>>> origin/dev
         return response
     
     except Exception as e:
