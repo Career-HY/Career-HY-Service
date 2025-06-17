@@ -3,9 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router
 from src.config.config import settings
 from src.utils.logging import setup_logging
+import logging
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 # 로깅 설정 초기화
 setup_logging()
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Career-Hi LLM Service",
@@ -34,3 +40,24 @@ def root():
         "version": "1.0.0",
         "model": settings.OPENAI_MODEL,
     }
+
+# ------------------------------------------------------------------
+# 🔧 Request Validation Error 로깅
+# ------------------------------------------------------------------
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Pydantic 검증 오류를 상세히 로깅한 뒤 기본 422 응답."""
+    try:
+        body = await request.body()
+        logger.error(
+            "❌ RequestValidationError | path=%s | errors=%s | body=%s",
+            request.url.path,
+            exc.errors(),
+            body.decode("utf-8", errors="ignore")[:1000],  # 과도한 길이 제한
+        )
+    except Exception:
+        logger.exception("검증 오류 로깅 중 추가 예외 발생")
+
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})

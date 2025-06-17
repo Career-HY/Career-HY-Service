@@ -7,6 +7,9 @@ services:
       - "5001:5001"
     volumes:
       - ./backend/src:/app/src
+    environment:
+      # 개발 시에만 덮어쓸 값
+      LLM_SERVICE_URL: http://llm-service:5003
 
   ingestion:
     build: ./ingestion

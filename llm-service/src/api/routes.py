@@ -4,8 +4,12 @@ from src.api.models import LLMRequest, LLMResponse
 from src.services.llm_prompting import LLMPromptingService
 from src.config.config import settings
 from src.services.ingestion_client import IngestionClient
+import logging
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
 @router.post(
     "/generate-llm",
     response_model=LLMResponse,
@@ -46,6 +50,20 @@ router = APIRouter()
 )
 async def generate_llm_response(request: LLMRequest):
     """LLM 응답을 생성합니다."""
+    # -----------------------------
+    # 요청 수신 로깅
+    # -----------------------------
+    try:
+        logger.info(
+            "📥 /generate-llm 요청 수신 | query_len=%s | chat_history_len=%s",
+            len(request.query),
+            len(request.chat_history or []),
+        )
+        logger.debug("요청 본문: %s", request.model_dump())
+    except Exception:
+        # 로깅 중 오류가 나더라도 요청 처리는 계속
+        logger.warning("요청 로깅 중 오류가 발생했습니다.")
+
     try:
         # 프로필에 query 설정 (Pydantic copy 메서드 사용)
         profile_with_query = request.profile.copy(update={'query': request.query})
@@ -64,9 +82,11 @@ async def generate_llm_response(request: LLMRequest):
             profile=profile_with_query,
             chat_history=request.chat_history
         )
- 
+
+        logger.info("✅ LLM 응답 생성 완료 | recommended_jobs=%s", len(response.recommended_jobs))
         return response
     
     except Exception as e:
+        logger.error("💥 LLM 응답 생성 실패: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

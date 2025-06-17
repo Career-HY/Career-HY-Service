@@ -47,36 +47,99 @@ class LLMPromptingService:
         self.client = Client()
         self.tracer = LangChainTracer(project_name="career-hi-rag")
 
-    async def _classify_query_intent(self, query: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
+    # ------------------------------------------------------------------
+    # 🔧 Helper: 대화 이력 포맷팅 (recommended_jobs 포함)
+    # ------------------------------------------------------------------
+    def _format_chat_history(self, chat_history: Optional[List[Dict[str, Any]]], limit: int = None) -> str:
+        """chat_history 리스트를 사람이 읽을 수 있는 텍스트로 변환합니다.
+
+        Args:
+            chat_history: [{"role": str, "content": str, "recommended_jobs": List[dict]|None}, ...]
+            limit: 뒤에서부터 몇 개까지 포함할지 (None이면 모두)
+        Returns:
+            str: 포맷팅된 문자열 (각 줄에 한 메시지)
+        """
+        if not chat_history:
+            return ""
+
+        msgs = chat_history[-limit:] if limit else chat_history
+
+        formatted_lines: List[str] = []
+        for msg in msgs:
+            # msg가 dict 또는 Pydantic BaseModel 일 수 있음
+            role = (
+                msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", "")
+            )
+            content = (
+                msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+            )
+
+            line = f"{role}: {content}"
+
+            # recommended_jobs가 있으면, 최대 3개 제목만 요약하여 추가
+            rec_jobs = (
+                msg.get("recommended_jobs") if isinstance(msg, dict) else getattr(msg, "recommended_jobs", None)
+            ) or []
+            if rec_jobs:
+                job_summaries = []
+                for idx, job in enumerate(rec_jobs[:3], 1):
+                    # dict 또는 Pydantic model 모두 지원
+                    get = (lambda k, default="": job.get(k, default)) if isinstance(job, dict) else (lambda k, default="": getattr(job, k, default))
+
+                    title = get("title")
+                    deadline = get("deadline") or "N/A"
+                    start_date = get("start_date") or "N/A"
+                    url = get("url") or "N/A"
+                    reason = get("recommendation_reason") or "N/A"
+
+                    summary_lines = [
+                        f"{idx}. {title}",
+                        f"   • 마감일: {deadline}",
+                        f"   • 시작일: {start_date}",
+                        f"   • URL: {url}",
+                        f"   • 추천 이유: {reason}",
+                    ]
+                    job_summaries.append("\n".join(summary_lines))
+
+                if job_summaries:
+                    line += "\n    추천 채용공고 상세:\n" + "\n".join(job_summaries)
+
+            formatted_lines.append(line)
+
+        return "\n".join(formatted_lines)
+
+    async def _classify_query_intent(self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> str:
         """LLM을 이용해 질문의 의도를 3가지로 분류합니다."""
         try:
             logger.info(f"🔍 의도 분류 시작 - 질문: '{query}'")
             
-            # 대화 이력 로깅
+            # 대화 이력 로깅 (recommended_jobs 포함)
             if chat_history:
-                logger.info(f"📝 의도 분류에 사용되는 대화 이력 (최근 {len(chat_history[-2:])}개):")
-                for msg in chat_history[-2:]:
-                    logger.info(f"  - {msg['role']}: {msg['content']}")
+                logger.info(
+                    f"📝 의도 분류에 사용되는 대화 이력 (최근 {min(len(chat_history), 2)}개):"
+                )
+                history_preview = self._format_chat_history(chat_history, limit=2)
+                for line in history_preview.split("\n"):
+                    logger.info(f"  - {line}")
             
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
-                history_text = "\n".join([
-                    f"{msg['role']}: {msg['content']}"
-                    for msg in chat_history[-2:]  # 최근 2개 메시지만 사용
-                ])
+                history_text = self._format_chat_history(chat_history, limit=2)
                 history_text = f"\n최근 대화 내용:\n{history_text}\n"
             
             classification_prompt = f"""
                 {history_text}
-                질문을 다음 3가지 중 하나로 분류해주세요:
+                당신은 Career-HY의 AI 어시스턴트 답변 전 질문의 의도를 분류하는 전문가입니다.
+                Career-HY는 한양대학교 학생들을 대상으로 하는 채용공고 추천 챗봇 서비스입니다.
+                사용자 질문에 대해 질문의 의도를 다음 3가지 중 하나로 분류해주세요:
 
-                1. REJECT: 취업/채용과 전혀 무관한 질문
+                1. REJECT: 서비스 이용, 취업/채용과 전혀 무관한 질문
                 예시: 
                 - "오늘 날씨 어때?"
                 - "맛집 추천해줘"
                 - "2+2는 뭐야?"
-                - 취업, 채용, 경력과 완전히 관련 없는 주제
+                - 서비스 이용, 취업, 채용, 경력과 완전히 관련 없는 주제
 
                 2. SEARCH_NEEDED: 새로운 채용공고 검색이 필요한 질문
                 예시: 
@@ -191,30 +254,29 @@ class LLMPromptingService:
         query: str, 
         documents: List[str],
         profile: Dict,
-        chat_history: Optional[List[Dict[str, str]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """프롬프트 생성"""
         
         # 대화 이력 포맷팅
         history_text = ""
         if chat_history:
-            history_text = "\n".join([
-                f"{msg['role']}: {msg['content']}"
-                for msg in chat_history[-5:]  # 최근 5개 메시지만 사용
-            ])
+            history_text = self._format_chat_history(chat_history, limit=5)
             history_text = f"\n이전 대화 내용:\n{history_text}\n"
 
         # 문서 컨텍스트 포맷팅
         docs_text = "\n---\n".join(documents) if documents else "관련 문서가 없습니다."
         
-        return f"""당신은 Career-Hi의 AI 커리어 어시스턴트입니다.
-            사용자의 프로필과 질문을 바탕으로 커리어 관련 조언을 제공해주세요.
+        return f"""당신은 Career-HY의 AI 커리어 어시스턴트입니다.
+            Career-HY는 한양대학교 학생들을 대상으로 하는 채용공고 추천 챗봇 서비스입니다.
+            
+            사용자의 프로필 정보, 이전 대화내용, 검색된 채용공고 문서 (검색된 채용공고 문서가 있다면) 를 바탕으로 사용자의 질문에 적절한 답변을 해주세요.
 
             {history_text}
             사용자 프로필:
             {profile}
 
-            관련 문서:
+            관련 채용공고 문서:
             {docs_text}
 
             사용자 질문: {query}
@@ -226,7 +288,7 @@ class LLMPromptingService:
         query: str, 
         documents: List[JobPosting],
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, str]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
@@ -269,7 +331,7 @@ class LLMPromptingService:
         self, 
         query: str, 
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, str]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> Dict:
         """문서 검색 없이 일반 취업 상담 응답을 생성합니다."""
         try:
@@ -284,11 +346,9 @@ class LLMPromptingService:
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
-                history_text = "\n".join([
-                    f"{msg['role']}: {msg['content']}"
-                    for msg in chat_history[-10:]
-                ])
+                history_text = self._format_chat_history(chat_history, limit=10)
                 history_text = f"\n이전 대화 내용:\n{history_text}\n"
+                logger.info(f"📝 상담 응답 생성에 사용되는 대화 이력:\n{history_text}")
             
             consultation_prompt = f"""
 당신은 취업 상담 전문가입니다. 사용자의 프로필을 고려하여 실용적이고 도움이 되는 조언을 제공해주세요.
@@ -328,7 +388,7 @@ class LLMPromptingService:
         query: str, 
         documents: List[JobPosting], 
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, str]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> Dict:
         """문서 검색 기반 채용공고 추천 응답을 생성합니다."""
         try:
@@ -343,10 +403,7 @@ class LLMPromptingService:
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
-                history_text = "\n".join([
-                    f"{msg['role']}: {msg['content']}"
-                    for msg in chat_history[-5:]  # 최근 5개 메시지만 사용
-                ])
+                history_text = self._format_chat_history(chat_history, limit=5)
                 history_text = f"\n이전 대화 내용:\n{history_text}\n"
                 logger.info(f"📝 추천 응답 생성에 사용되는 대화 이력:\n{history_text}")
             

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 
 class CourseInfo(BaseModel):
@@ -46,12 +46,18 @@ class RetrievalRequest(BaseModel):
     certification: List[str]
 
 
+class ChatHistoryMessage(BaseModel):
+    role: str = Field(..., description="메시지 발신자: user 또는 llm")
+    content: str = Field(..., description="메시지 내용")
+    recommended_jobs: Optional[List[Dict[str, Any]]] = None  # 추천 채용공고(선택)
+
+
 class LLMRequest(BaseModel):
     """LLM 서비스 요청"""
 
     query: str = Field(..., description="사용자 질문")
     profile: RetrievalRequest = Field(..., description="사용자 프로필")
-    chat_history: Optional[List[Dict[str, str]]] = None  # [{"role": "user/llm", "content": "메시지"}]
+    chat_history: Optional[List[Dict[str, Any]]] = None  # 대화 이력 (유연하게 허용)
 
 
 class RecommendedJob(BaseModel):
