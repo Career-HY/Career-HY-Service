@@ -18,20 +18,25 @@ logger = logging.getLogger(__name__)
 # LangChain with_structured_output을 위한 Pydantic 모델
 class JobRecommendationResponse(BaseModel):
     """채용공고 추천 응답 구조"""
+
     recommended_job_indices: List[int] = Field(
-        description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열", 
+        description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열",
         max_items=3,
         # default=[]
-        min_items=3
+        min_items=3,
     )
-    overall_advice: str = Field(description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변")
+    overall_advice: str = Field(
+        description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변"
+    )
     recommendation_reasons: List[str] = Field(
-        description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열", 
+        description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열",
         max_items=3,
         # default=[]
-        min_items=3
+        min_items=3,
     )
-    practical_tips: str = Field(description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언")
+    practical_tips: str = Field(
+        description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
+    )
 
 
 class LLMPromptingService:
@@ -79,8 +84,9 @@ class LLMPromptingService:
             "assistant: 세 공고 중 가장 다양한 스택을 다루는 곳은 GCP DevOps 인턴입니다. 이유는 ...\n"
         )
 
-
-    def _format_chat_history(self, chat_history: Optional[List[Dict[str, Any]]], limit: int = None) -> str:
+    def _format_chat_history(
+        self, chat_history: Optional[List[Dict[str, Any]]], limit: int = None
+    ) -> str:
         """chat_history 리스트를 사람이 읽을 수 있는 텍스트로 변환합니다.
 
         Args:
@@ -101,20 +107,28 @@ class LLMPromptingService:
                 msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", "")
             )
             content = (
-                msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+                msg.get("content")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", "")
             )
 
             line = f"{role}: {content}"
 
             # recommended_jobs가 있으면, 최대 3개 제목만 요약하여 추가
             rec_jobs = (
-                msg.get("recommended_jobs") if isinstance(msg, dict) else getattr(msg, "recommended_jobs", None)
+                msg.get("recommended_jobs")
+                if isinstance(msg, dict)
+                else getattr(msg, "recommended_jobs", None)
             ) or []
             if rec_jobs:
                 job_summaries = []
                 for idx, job in enumerate(rec_jobs[:3], 1):
                     # dict 또는 Pydantic model 모두 지원
-                    get = (lambda k, default="": job.get(k, default)) if isinstance(job, dict) else (lambda k, default="": getattr(job, k, default))
+                    get = (
+                        (lambda k, default="": job.get(k, default))
+                        if isinstance(job, dict)
+                        else (lambda k, default="": getattr(job, k, default))
+                    )
 
                     title = get("title")
                     deadline = get("deadline") or "N/A"
@@ -139,11 +153,13 @@ class LLMPromptingService:
         return "\n".join(formatted_lines)
 
     # Intent Router
-    async def _classify_query_intent(self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> str:
+    async def _classify_query_intent(
+        self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None
+    ) -> str:
         """LLM을 이용해 질문의 의도를 3가지로 분류합니다."""
         try:
             logger.info(f"🔍 의도 분류 시작 - 질문: '{query}'")
-            
+
             # 대화 이력 로깅 (recommended_jobs 포함)
             if chat_history:
                 logger.info(
@@ -152,13 +168,13 @@ class LLMPromptingService:
                 history_preview = self._format_chat_history(chat_history, limit=2)
                 for line in history_preview.split("\n"):
                     logger.info(f"  - {line}")
-            
+
             # 대화 이력 포맷팅
             history_text = ""
             if chat_history:
                 history_text = self._format_chat_history(chat_history, limit=2)
                 history_text = f"\n최근 대화 내용:\n{history_text}\n"
-            
+
             classification_prompt = f"""
                 {history_text}
                 당신은 Career-HY의 AI 어시스턴트 답변 전 질문의 의도를 분류하는 전문가입니다.
@@ -198,13 +214,13 @@ class LLMPromptingService:
 
                 답변: REJECT, SEARCH_NEEDED, NO_SEARCH 중 하나만
                 """
-            
+
             logger.debug(f"📝 의도 분류 프롬프트 전송 중...")
             response = await self.llm.ainvoke(classification_prompt)
             result = response.content.strip().upper()
-            
+
             logger.info(f"🤖 LLM 의도 분류 응답: '{result}'")
-            
+
             # 유효한 답변인지 확인
             if "REJECT" in result:
                 logger.info(f"❌ 의도 분류 결과: REJECT - 취업/채용과 무관한 질문")
@@ -217,9 +233,11 @@ class LLMPromptingService:
                 return "NO_SEARCH"
             else:
                 # 애매한 경우 NO_SEARCH로 처리
-                logger.warning(f"⚠️ 의도 분류 결과가 애매함: '{result}' -> NO_SEARCH로 처리")
+                logger.warning(
+                    f"⚠️ 의도 분류 결과가 애매함: '{result}' -> NO_SEARCH로 처리"
+                )
                 return "NO_SEARCH"
-            
+
         except Exception as e:
             logger.warning(f"💥 의도 분류 실패, 안전하게 NO_SEARCH로 처리: {e}")
             return "NO_SEARCH"
@@ -229,24 +247,28 @@ class LLMPromptingService:
     ) -> List[RecommendedJob]:
         """Function Call 결과에서 추천된 채용공고를 추출합니다."""
         recommended_jobs = []
-        
+
         try:
             # Function Call에서 추천 인덱스와 이유 추출
             indices = function_args.get("recommended_job_indices", [])
             reasons = function_args.get("recommendation_reasons", [])
-            
+
             # 빈 배열인 경우 (일반 상담/조언) 빈 리스트 반환
             if not indices:
                 return []
-            
+
             # RecommendedJob 객체 생성
             for i, idx in enumerate(indices[:3]):  # 최대 3개
                 try:
                     doc_idx = int(idx) - 1  # 1-based를 0-based로 변환
                     if 0 <= doc_idx < len(documents):
                         doc = documents[doc_idx]
-                        reason = reasons[i] if i < len(reasons) else f"{i+1}번째 추천 채용공고"
-                        
+                        reason = (
+                            reasons[i]
+                            if i < len(reasons)
+                            else f"{i+1}번째 추천 채용공고"
+                        )
+
                         recommended_job = RecommendedJob(
                             rec_idx=doc.rec_idx,
                             title=doc.title,
@@ -259,13 +281,13 @@ class LLMPromptingService:
                         recommended_jobs.append(recommended_job)
                 except (ValueError, IndexError):
                     continue
-                    
+
         except Exception as e:
             logger.warning(f"Function Call 결과 파싱 실패: {e}")
             # 빈 인덱스 배열이면 빈 리스트 반환 (fallback하지 않음)
             if not function_args.get("recommended_job_indices", []):
                 return []
-            
+
             # 파싱 실패하고 인덱스가 있는 경우만 fallback
             logger.warning("상위 3개로 fallback 사용")
             for i, doc in enumerate(documents[:3]):
@@ -301,7 +323,9 @@ class LLMPromptingService:
             logger.warning(f"프로필 요약 생성 실패: {e}")
             return str(profile)
 
-    def _build_base_prompt(self, profile_summary: str, history_text: str, query: str) -> str:
+    def _build_base_prompt(
+        self, profile_summary: str, history_text: str, query: str
+    ) -> str:
         """공통 프롬프트(서두 + 프로필 + 이전 대화 + 사용자 질문) 생성"""
         return (
             "당신은 Career-HY의 AI 커리어 어시스턴트입니다.\n"
@@ -314,19 +338,18 @@ class LLMPromptingService:
             f"사용자 질문: {query}\n"
         )
 
-
     async def generate_response(
-        self, 
-        query: str, 
+        self,
+        query: str,
         documents: List[JobPosting],
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, Any]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None,
     ) -> LLMResponse:
         """사용자 질문에 대한 응답을 생성합니다."""
         try:
             logger.info(f"🚀 LLM 응답 생성 시작 - 질문: '{query}'")
             logger.info(f"📊 검색된 문서 수: {len(documents)}")
-            
+
             # --------------------------------------------------------------------------------
             # 0단계: 공통 프롬프트 구성 (프로필 요약 + 대화 이력 문자열) 1회만 계산
             # --------------------------------------------------------------------------------
@@ -345,30 +368,36 @@ class LLMPromptingService:
 
             # ----- Intent Classification -----
             intent = await self._classify_query_intent(query, chat_history)
-            
+
             if intent == "REJECT":
                 logger.info(f"🚫 REJECT 경로 - 거부 응답 반환")
                 return LLMResponse(
                     content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 서비스 이용이나 취업/채용 관련된 질문을 부탁드립니다.",
-                    recommended_jobs=[]
+                    recommended_jobs=[],
                 )
-            
+
             elif intent == "NO_SEARCH":
                 logger.info(f"💬 NO_SEARCH 경로 - 일반 상담 응답 생성")
                 # ----- Consultation Response -----
-                response = await self._generate_consultation_response(query, profile, chat_history, base_prompt=base_prompt)
+                response = await self._generate_consultation_response(
+                    base_prompt=base_prompt
+                )
                 return LLMResponse(**response)
-            
+
             elif intent == "SEARCH_NEEDED":
                 logger.info(f"🔍 SEARCH_NEEDED 경로 - 채용공고 추천 응답 생성")
                 # ----- Recommendation Response -----
-                response = await self._generate_recommendation_response(query, documents, profile, chat_history, base_prompt=base_prompt)
+                response = await self._generate_recommendation_response(
+                    documents, base_prompt=base_prompt
+                )
                 return LLMResponse(**response)
-            
+
             else:
                 logger.warning(f"⚠️ 예상치 못한 의도: '{intent}' - SEARCH_NEEDED로 처리")
                 # ----- Recommendation Response -----
-                response = await self._generate_recommendation_response(query, documents, profile, chat_history, base_prompt=base_prompt)
+                response = await self._generate_recommendation_response(
+                    documents, base_prompt=base_prompt
+                )
                 return LLMResponse(**response)
 
         except Exception as e:
@@ -377,22 +406,17 @@ class LLMPromptingService:
 
     async def _generate_consultation_response(
         self,
-        query: str,
-        profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, Any]]] = None,
         *,
-        base_prompt: str | None = None,
+        base_prompt: str,
     ) -> Dict:
         """문서 검색 없이 일반 취업 상담 응답을 생성합니다."""
         try:
-            # 이미 base_prompt 가 준비되어 있으면 그대로 사용, 아니면 기존 방식 유지
+            # base_prompt 는 generate_response 단계에서 반드시 생성되어 전달됩니다.
+            # 만약 None 이 넘어오면 로직 오류로 간주합니다.
             if base_prompt is None:
-                profile_summary = self._create_profile_summary(profile)
-                history_text = ""
-                if chat_history:
-                    history_text = self._format_chat_history(chat_history, limit=10)
-                    history_text = f"이전 대화 내용:\n{history_text}\n"
-                base_prompt = self._build_base_prompt(profile_summary, history_text, query)
+                raise ValueError(
+                    "base_prompt must be provided for consultation response"
+                )
 
             additional_guideline = (
                 "다음 형식으로 답변해주세요:\n"
@@ -410,24 +434,21 @@ class LLMPromptingService:
                 # + "\n\n=== 답변 예시 ===\n"
                 # + self._consultation_examples
             )
-            
+
             response = await self.llm.ainvoke(consultation_prompt)
-            
+
             return {
                 "content": response.content.strip(),
-                "recommended_jobs": []  # 상담에는 채용공고 추천 없음
+                "recommended_jobs": [],  # 상담에는 채용공고 추천 없음
             }
-            
+
         except Exception as e:
             logger.error(f"상담 응답 생성 실패: {str(e)}")
             raise
 
     async def _generate_recommendation_response(
         self,
-        query: str,
         documents: List[JobPosting],
-        profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, Any]]] = None,
         *,
         base_prompt: str | None = None,
     ) -> Dict:
@@ -444,30 +465,35 @@ class LLMPromptingService:
                 base_prompt
                 + "\n다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다:\n"
                 + formatted_docs
-
                 + "\n\n**중요 지침:**\n"
                 + "1. 사용자의 질문 의도를 정확히 파악하세요.\n"
                 + "2. 사용자의 프로필(전공·수강 과목·자격증·관심 직무)을 적극 활용하여 추천 이유를 작성하세요.\n"
-
                 # + "\n\n=== 추천 예시 ===\n"
                 # + self._recommendation_examples
             )
-            
+
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
             result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
             function_args = result.dict()
-            
+
             # LLM structured output 결과 로깅
             logger.info(f"🤖 LLM Structured Output 결과:")
-            logger.info(f"  - recommended_job_indices: {function_args.get('recommended_job_indices', [])}")
-            logger.info(f"  - overall_advice 길이: {len(function_args.get('overall_advice', ''))}")
-            logger.info(f"  - recommendation_reasons 개수: {len(function_args.get('recommendation_reasons', []))}")
-            logger.info(f"  - practical_tips 길이: {len(function_args.get('practical_tips', ''))}")
-            
+            logger.info(
+                f"  - recommended_job_indices: {function_args.get('recommended_job_indices', [])}"
+            )
+            logger.info(
+                f"  - overall_advice 길이: {len(function_args.get('overall_advice', ''))}"
+            )
+            logger.info(
+                f"  - recommendation_reasons 개수: {len(function_args.get('recommendation_reasons', []))}"
+            )
+            logger.info(
+                f"  - practical_tips 길이: {len(function_args.get('practical_tips', ''))}"
+            )
 
             # 전체 응답 텍스트 생성
-            if function_args['recommended_job_indices']:
+            if function_args["recommended_job_indices"]:
                 # 채용공고 추천이 있는 경우 - 제목 목록 제거, 조언과 팁만 포함
                 llm_response = f"""
 {function_args['overall_advice']}
@@ -484,13 +510,15 @@ class LLMPromptingService:
 """.strip()
 
             # 추천된 채용공고 파싱
-            recommended_jobs = self._extract_recommended_jobs_from_function_call(function_args, documents)
+            recommended_jobs = self._extract_recommended_jobs_from_function_call(
+                function_args, documents
+            )
 
             # Langsmith에 메타데이터 기록
             self.client.create_run(
                 name="job_recommendation",
                 run_type="llm",
-                inputs={"query": query, "num_documents": len(documents)},
+                inputs={"num_documents": len(documents)},
                 outputs={
                     "recommended_jobs": [job.dict() for job in recommended_jobs],
                 },
@@ -500,8 +528,7 @@ class LLMPromptingService:
                 "content": llm_response,
                 "recommended_jobs": recommended_jobs,
             }
-            
+
         except Exception as e:
             logger.error(f"추천 응답 생성 실패: {str(e)}")
             raise
-
