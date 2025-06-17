@@ -47,9 +47,39 @@ class LLMPromptingService:
         self.client = Client()
         self.tracer = LangChainTracer(project_name="career-hi-rag")
 
-    # ------------------------------------------------------------------
-    # 🔧 Helper: 대화 이력 포맷팅 (recommended_jobs 포함)
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Few-shot 예시: 상담(Consultation) / 추천(Recommendation) 상황별 분리
+        # ------------------------------------------------------------------
+
+        # ---- 가상 프로필 예시 ----
+        _demo_profile = (
+            "전공: 컴퓨터공학\n"
+            "관심 직무: 백엔드, 클라우드\n"
+            "자격증: SQLD\n"
+            "수강 과목: 자료구조, 운영체제, 네트워크, 데이터베이스, 클라우드컴퓨팅"
+        )
+
+        self._consultation_examples = (
+            "[예시: 일반 상담]\n"
+            f"<사용자 프로필>\n{_demo_profile}\n\n"
+            "user: 이 프로필을 가진 학생이 면접 준비를 어떻게 하면 좋을까요?\n"
+            "assistant:\n"
+            "1) 전공 과목(운영체제, 네트워크)을 기반으로 시스템 이해도를 강조하세요.\n"
+            "2) SQLD는 이미 취득하셨으니 정보처리기사 자격증을 준비하시는 것도 좋게 작용할수 있습니다.\n"
+            "3) 기술 면접 대비로 자료구조·DB 질문 리스트를 만들어 답변을 연습하세요.\n"
+            "4) 팀을 꾸려서 프로젝트를 진행하고 실제로 배포하고 운영경험을 쌓아보는 것도 좋습니다.\n"
+        )
+
+        self._recommendation_examples = (
+            "[예시: 채용공고 추천 + 후속 질문]\n"
+            f"<사용자 프로필>\n{_demo_profile}\n\n"
+            "user: 클라우드 관련 인턴 채용공고 3개만 추천해줘\n"
+            "assistant: 1) AWS 클라우드 인턴 (마감 4/10) ... 2) Azure 백엔드 인턴 (마감 4/18) ... 3) GCP DevOps 인턴 (마감 4/25) ...\n"
+            "user: 방금 추천한 공고 중 기술 스택이 가장 다양한 곳을 알려줘\n"
+            "assistant: 세 공고 중 가장 다양한 스택을 다루는 곳은 GCP DevOps 인턴입니다. 이유는 ...\n"
+        )
+
+
     def _format_chat_history(self, chat_history: Optional[List[Dict[str, Any]]], limit: int = None) -> str:
         """chat_history 리스트를 사람이 읽을 수 있는 텍스트로 변환합니다.
 
@@ -108,6 +138,7 @@ class LLMPromptingService:
 
         return "\n".join(formatted_lines)
 
+    # Intent Router
     async def _classify_query_intent(self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> str:
         """LLM을 이용해 질문의 의도를 3가지로 분류합니다."""
         try:
@@ -159,7 +190,9 @@ class LLMPromptingService:
                 - 기존 추천에 대한 추가 질문
                 - 일반적인 취업 상담 질문
 
-                중요: 이전 추천 채용공고에 대한 추가 질문은 새로운 검색이 필요없으므로 NO_SEARCH로 분류하세요.
+                이전 추천 채용공고에 대한 추가 질문은 새로운 검색이 필요없으므로 NO_SEARCH로 분류하세요.
+                "안녕 넌 누구야?"와 같은 질문은 서비스 이용에 대한 질문입니다. NO_SEARCH로 분류하세요.
+                REJECT에 대해서는 엄격하게 검사하지 말고 서비스 이용, 취업/채용 과 아주 관련없는 질문에 대해서만 본류해주세요. 
                 
                 사용자 질문: {query}
 
@@ -249,39 +282,38 @@ class LLMPromptingService:
 
         return recommended_jobs
 
-    def _create_prompt(
-        self, 
-        query: str, 
-        documents: List[str],
-        profile: Dict,
-        chat_history: Optional[List[Dict[str, Any]]] = None
-    ) -> str:
-        """프롬프트 생성"""
-        
-        # 대화 이력 포맷팅
-        history_text = ""
-        if chat_history:
-            history_text = self._format_chat_history(chat_history, limit=5)
-            history_text = f"\n이전 대화 내용:\n{history_text}\n"
+    def _create_profile_summary(self, profile: "RetrievalRequest") -> str:
+        """사용자 프로필을 요약 문자열로 변환"""
+        try:
+            courses = ", ".join([c.course_name for c in profile.catalogs[:5]])
+            if len(profile.catalogs) > 5:
+                courses += "..."
 
-        # 문서 컨텍스트 포맷팅
-        docs_text = "\n---\n".join(documents) if documents else "관련 문서가 없습니다."
-        
-        return f"""당신은 Career-HY의 AI 커리어 어시스턴트입니다.
-            Career-HY는 한양대학교 학생들을 대상으로 하는 채용공고 추천 챗봇 서비스입니다.
-            
-            사용자의 프로필 정보, 이전 대화내용, 검색된 채용공고 문서 (검색된 채용공고 문서가 있다면) 를 바탕으로 사용자의 질문에 적절한 답변을 해주세요.
+            summary = (
+                f"사용자 프로필:\n"
+                f"- 전공: {profile.major}\n"
+                f"- 관심 직무: {', '.join(profile.interest_job)}\n"
+                f"- 자격증: {', '.join(profile.certification)}\n"
+                f"- 수강 과목: {courses}"
+            )
+            return summary
+        except Exception as e:
+            logger.warning(f"프로필 요약 생성 실패: {e}")
+            return str(profile)
 
-            {history_text}
-            사용자 프로필:
-            {profile}
+    def _build_base_prompt(self, profile_summary: str, history_text: str, query: str) -> str:
+        """공통 프롬프트(서두 + 프로필 + 이전 대화 + 사용자 질문) 생성"""
+        return (
+            "당신은 Career-HY의 AI 커리어 어시스턴트입니다.\n"
+            "Career-HY는 한양대학교 학생들을 대상으로 하는 채용공고 추천 챗봇 서비스입니다.\n\n"
+            "우리의 서비스에 대해 묻는 질문이 있다면, 학생들의 수강 이력, 자격증, 관심사 등의 프로필 정보를 활용해 개인 맞춤형 채용공고를 추천할수 있다는 점을 꼭 드러내야해\n"
+            "사용자가 아직 프로필 정보를 등록하지 않은 상태라면, 프로필 정보를 등록할 것을 요구해줘 (이미 프로필 정보가 등록이 되어있다면, 굳이 언급할 필요는 없어)\n"
+            "사용자의 프로필 정보, 이전 대화 기록을 바탕으로 사용자의 질문에 적절한 답변을 해주세요.\n\n"
+            f"이전 대화 기록: {history_text}\n"
+            f"사용자 프로필 정보: {profile_summary}\n\n"
+            f"사용자 질문: {query}\n"
+        )
 
-            관련 채용공고 문서:
-            {docs_text}
-
-            사용자 질문: {query}
-
-            답변:"""
 
     async def generate_response(
         self, 
@@ -295,32 +327,48 @@ class LLMPromptingService:
             logger.info(f"🚀 LLM 응답 생성 시작 - 질문: '{query}'")
             logger.info(f"📊 검색된 문서 수: {len(documents)}")
             
-            # 1단계: LLM으로 질문 의도 분류 (토큰 절약을 위한 간단한 프롬프트)
+            # --------------------------------------------------------------------------------
+            # 0단계: 공통 프롬프트 구성 (프로필 요약 + 대화 이력 문자열) 1회만 계산
+            # --------------------------------------------------------------------------------
+
+            # ----- Chat History -----
+            history_text = ""
+            if chat_history:
+                history_text = self._format_chat_history(chat_history, limit=10)
+                history_text = f"이전 대화 내용:\n{history_text}\n"
+
+            # ----- Profile Summary -----
+            profile_summary = self._create_profile_summary(profile)
+
+            # ----- Base Prompt ----- 모든 분기에 사용되는 공통 프롬프트
+            base_prompt = self._build_base_prompt(profile_summary, history_text, query)
+
+            # ----- Intent Classification -----
             intent = await self._classify_query_intent(query, chat_history)
             
             if intent == "REJECT":
                 logger.info(f"🚫 REJECT 경로 - 거부 응답 반환")
                 return LLMResponse(
-                    content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 취업이나 채용과 관련된 질문을 부탁드립니다.",
+                    content="죄송합니다. 저는 채용공고 추천 및 취업 상담 전문 AI입니다. 서비스 이용이나 취업/채용 관련된 질문을 부탁드립니다.",
                     recommended_jobs=[]
                 )
             
             elif intent == "NO_SEARCH":
                 logger.info(f"💬 NO_SEARCH 경로 - 일반 상담 응답 생성")
-                # 문서 검색 없이 일반 취업 상담 응답 생성
-                response = await self._generate_consultation_response(query, profile, chat_history)
+                # ----- Consultation Response -----
+                response = await self._generate_consultation_response(query, profile, chat_history, base_prompt=base_prompt)
                 return LLMResponse(**response)
             
             elif intent == "SEARCH_NEEDED":
                 logger.info(f"🔍 SEARCH_NEEDED 경로 - 채용공고 추천 응답 생성")
-                # 기존 로직: 문서 검색
-                response = await self._generate_recommendation_response(query, documents, profile, chat_history)
+                # ----- Recommendation Response -----
+                response = await self._generate_recommendation_response(query, documents, profile, chat_history, base_prompt=base_prompt)
                 return LLMResponse(**response)
             
             else:
                 logger.warning(f"⚠️ 예상치 못한 의도: '{intent}' - SEARCH_NEEDED로 처리")
-                # 예상치 못한 경우, 안전하게 검색 진행
-                response = await self._generate_recommendation_response(query, documents, profile, chat_history)
+                # ----- Recommendation Response -----
+                response = await self._generate_recommendation_response(query, documents, profile, chat_history, base_prompt=base_prompt)
                 return LLMResponse(**response)
 
         except Exception as e:
@@ -328,49 +376,40 @@ class LLMPromptingService:
             raise
 
     async def _generate_consultation_response(
-        self, 
-        query: str, 
+        self,
+        query: str,
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, Any]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        *,
+        base_prompt: str | None = None,
     ) -> Dict:
         """문서 검색 없이 일반 취업 상담 응답을 생성합니다."""
         try:
-            # 사용자 프로필 정보 정리
-            profile_summary = f"""
-사용자 프로필:
-- 전공: {profile.major}
-- 관심 직무: {', '.join(profile.interest_job)}
-- 자격증: {', '.join(profile.certification)}
-- 수강 과목: {', '.join([course.course_name for course in profile.catalogs[:5]])}{"..." if len(profile.catalogs) > 5 else ""}
-"""
-            # 대화 이력 포맷팅
-            history_text = ""
-            if chat_history:
-                history_text = self._format_chat_history(chat_history, limit=10)
-                history_text = f"\n이전 대화 내용:\n{history_text}\n"
-                logger.info(f"📝 상담 응답 생성에 사용되는 대화 이력:\n{history_text}")
-            
-            consultation_prompt = f"""
-당신은 취업 상담 전문가입니다. 사용자의 프로필을 고려하여 실용적이고 도움이 되는 조언을 제공해주세요.
+            # 이미 base_prompt 가 준비되어 있으면 그대로 사용, 아니면 기존 방식 유지
+            if base_prompt is None:
+                profile_summary = self._create_profile_summary(profile)
+                history_text = ""
+                if chat_history:
+                    history_text = self._format_chat_history(chat_history, limit=10)
+                    history_text = f"이전 대화 내용:\n{history_text}\n"
+                base_prompt = self._build_base_prompt(profile_summary, history_text, query)
 
-{history_text}
-{profile_summary}
+            additional_guideline = (
+                "다음 형식으로 답변해주세요:\n"
+                "1. 사용자의 질문 의도를 파악하고 올바른 답변을 제시하세요."
+                "2. 필요한 경우에만 사용자의 프로필을 직접 언급하며 맞춤형 조언 제공하세요.\n"
+                "3. 취업 관련 상담이라면, 전공·수강과목·자격증을 활용한 직무 준비 방법 제시해도 좋습니다.\n"
+                "3. 필요 시 단계별 실행 방법/체크리스트 포함해주세요.\n"
+                "중요!: 사용자가 물어보지 않은 질문에 대해서는 대답하지마세요."
+            )
 
-사용자 질문: {query}
-
-다음 형식으로 답변해주세요:
-1. 사용자의 프로필을 구체적으로 언급하며 맞춤형 답변 제공
-2. 전공, 수강 과목, 자격증을 직접 언급하며 관련된 실무 팁 제공
-3. 단계별 실행 방법이나 체크리스트 (필요한 경우)
-
-**중요**: 답변에서 반드시 사용자의 구체적인 프로필 요소를 활용하세요.
-- 전공명을 언급하며 해당 분야와 연관된 조언
-- 수강 과목을 언급하며 관련 기술이나 지식 활용법
-- 자격증을 언급하며 취업 시 활용 방안
-- 관심 직무와 연결된 구체적인 방향성
-
-전문적이지만 친근한 톤으로 답변해주세요.
-"""
+            consultation_prompt = (
+                base_prompt
+                + "\n=== 지침 ===\n"
+                + additional_guideline
+                # + "\n\n=== 답변 예시 ===\n"
+                # + self._consultation_examples
+            )
             
             response = await self.llm.ainvoke(consultation_prompt)
             
@@ -384,29 +423,17 @@ class LLMPromptingService:
             raise
 
     async def _generate_recommendation_response(
-        self, 
-        query: str, 
-        documents: List[JobPosting], 
+        self,
+        query: str,
+        documents: List[JobPosting],
         profile: RetrievalRequest,
-        chat_history: Optional[List[Dict[str, Any]]] = None
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        *,
+        base_prompt: str | None = None,
     ) -> Dict:
         """문서 검색 기반 채용공고 추천 응답을 생성합니다."""
         try:
-            # 사용자 프로필 정보 정리
-            profile_summary = f"""
-사용자 프로필:
-- 전공: {profile.major}
-- 관심 직무: {', '.join(profile.interest_job)}
-- 자격증: {', '.join(profile.certification)}
-- 수강 과목: {', '.join([course.course_name for course in profile.catalogs[:5]])}{"..." if len(profile.catalogs) > 5 else ""}
-"""
-            # 대화 이력 포맷팅
-            history_text = ""
-            if chat_history:
-                history_text = self._format_chat_history(chat_history, limit=5)
-                history_text = f"\n이전 대화 내용:\n{history_text}\n"
-                logger.info(f"📝 추천 응답 생성에 사용되는 대화 이력:\n{history_text}")
-            
+
             # 문서 포맷팅
             doc_texts = [
                 f"채용공고 {i+1}:\n제목: {doc.title}\nURL: {doc.url}\n내용: {doc.content[:300]}..."
@@ -414,59 +441,18 @@ class LLMPromptingService:
             ]
             formatted_docs = "\n\n".join(doc_texts)
 
-            # 프롬프트 템플릿 생성 (채용공고 추천 전용)
-            prompt = f"""
-당신은 취업 상담 전문가입니다. 사용자의 프로필과 질문에 맞춰 적절한 채용공고를 추천하거나 이전 추천에 대해 설명해주세요.
+            prompt = (
+                base_prompt
+                + "\n다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다:\n"
+                + formatted_docs
 
-{history_text}
-{profile_summary}
+                + "\n\n**중요 지침:**\n"
+                + "1. 사용자의 질문 의도를 정확히 파악하세요.\n"
+                + "2. 사용자의 프로필(전공·수강 과목·자격증·관심 직무)을 적극 활용하여 추천 이유를 작성하세요.\n"
 
-다음은 사용자의 프로필과 관심사에 맞춰 검색된 10개 채용공고입니다:
-{formatted_docs}
-
-사용자 질문: {query}
-
-**중요 지침:**
-1. 사용자의 질문 의도를 정확히 파악하세요:
-   - 새로운 채용공고 추천을 원하는 질문인가요? (예: "어떤 회사에 지원하면 좋을까요?", "추천 채용공고 알려주세요")
-   - 이전에 추천한 채용공고에 대한 추가 설명을 요청하는 질문인가요? (예: "첫 번째 공고에 대해 더 자세히 설명해주세요")
-   - 특정 기술/직무 관련 채용공고를 찾는 질문인가요?
-
-2. **이전 추천 공고에 대한 설명 요청인 경우:**
-   - 대화 이력에서 해당 채용공고를 찾아 구체적으로 설명
-   - 해당 공고의 주요 내용, 요구사항, 우대사항 등을 상세히 설명
-   - 사용자 프로필과 연관지어 설명 (프로필 정보가 있는 경우)
-   - recommended_job_indices는 빈 배열로 설정 (새로운 추천이 아니므로)
-   - overall_advice에 해당 공고에 대한 구체적인 설명을 포함
-   - practical_tips에 해당 공고 지원 시 도움될 실용적인 조언 포함
-
-3. **새로운 채용공고 추천이 필요한 경우:**
-   - 위 10개 채용공고 중에서 사용자의 프로필에 가장 적합한 1~3개를 선별하여 추천
-   - recommended_job_indices에 해당 번호들을 포함
-   - recommendation_reasons에 추천 이유를 상세히 명시
-   - 사용자의 프로필 데이터가 있다면 적극 활용:
-     * 전공과 해당 포지션의 연관성
-     * 수강 과목과 업무의 연결점
-     * 자격증과 채용 우대 조건
-     * 관심 직무와 포지션의 일치도
-   - "채용공고 1", "채용공고 2" 같은 번호 언급은 피하고 구체적인 회사명/직무로 언급
-   - 각 채용공고의 추천 이유는 독립적으로 작성
-
-4. **일반 상담이 필요한 경우:**
-   - recommended_job_indices는 빈 배열로 설정
-   - overall_advice에 질문에 대한 구체적인 답변 제공
-   - practical_tips에 실행 가능한 구체적인 조언 제공
-   - 가능한 경우 사용자 프로필 요소를 활용한 맞춤형 조언 제공
-
-답변 시 주의사항:
-1. 항상 구체적이고 명확하게 답변하세요
-2. 실제 채용공고 내용을 기반으로 답변하세요
-3. 이전 대화 맥락을 충분히 고려하세요
-4. 불필요하게 장황한 설명은 피하고 핵심적인 내용에 집중하세요
-5. 사용자가 요청하지 않은 일반적인 조언은 최소화하세요
-
-사용자의 질문 의도에 가장 적합한 방식으로 응답해주세요.
-"""
+                # + "\n\n=== 추천 예시 ===\n"
+                # + self._recommendation_examples
+            )
             
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
