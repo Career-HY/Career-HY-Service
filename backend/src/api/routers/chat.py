@@ -72,7 +72,11 @@ async def chat_with_llm(
         # 5. 최근 대화 이력 조회
         recent_messages = get_recent_chat_messages(db, chatroom_id, limit=5)
         chat_history = [
-            {"role": msg.sender, "content": msg.content}
+            {
+                "role": msg.sender,
+                "content": msg.content,
+                "recommended_jobs": msg.recommended_jobs if msg.sender == "llm" and msg.recommended_jobs else None
+            }
             for msg in recent_messages
         ]
         
