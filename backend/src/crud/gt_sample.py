@@ -21,5 +21,5 @@ def get_gt_sample(db: Session, sample_id: int) -> Optional[GTSample]:
     return db.query(GTSample).filter(GTSample.id == sample_id).first()
 
 
-def list_gt_samples(db: Session, skip: int = 0, limit: int = 100) -> List[GTSample]:
+def list_gt_samples(db: Session, skip: int = 0, limit: int = 200) -> List[GTSample]:
     return db.query(GTSample).offset(skip).limit(limit).all() 
