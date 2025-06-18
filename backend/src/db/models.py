@@ -218,3 +218,18 @@ class JobRecommendationFeedback(Base):
     # 관계 설정(옵션)
     chat_history = relationship("ChatMessage")
     member = relationship("Member")
+
+
+class GTSample(Base):
+    __tablename__ = "gt_sample"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    seed_rec_idx = Column(String(36), nullable=False, index=True)
+    relevant_ids = Column(JSON, nullable=False)  # ["43681382", ...]
+    profile = Column(JSON, nullable=False)
+    query = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("seed_rec_idx", "query", name="uniq_seed_query"),
+    )
