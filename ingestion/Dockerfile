@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 WORKDIR /app
 
 # 0) 시스템 빌드 도구 & CMake 설치

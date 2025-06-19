@@ -105,7 +105,7 @@ def get_all_rec_ids(persist_dir: str) -> List[str]:
     client = chromadb.PersistentClient(path=persist_dir)
     collection = client.get_or_create_collection(name="job-postings")
 
-    data = collection.get(include=["ids"], limit=None)
+    data = collection.get(limit=None)
     return data.get("ids", [])
 
 
@@ -142,7 +142,7 @@ def get_similar_postings(
 
     # 1) 기준 문서 임베딩 로드
     seed_data = collection.get(ids=[seed_id], include=["embeddings"])
-    if not seed_data["embeddings"]:
+    if len(seed_data.get("embeddings", [])) == 0:
         raise ValueError(f"Seed ID {seed_id} not found in collection")
     seed_embedding = seed_data["embeddings"][0]
 
@@ -150,7 +150,7 @@ def get_similar_postings(
     res = collection.query(
         query_embeddings=[seed_embedding],
         n_results=top_n + 1,
-        include=["ids"],
+        include=["distances"],
     )
 
     ids = res["ids"][0]

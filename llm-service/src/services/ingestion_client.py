@@ -44,3 +44,26 @@ class IngestionClient:
                 documents.append(job_posting)
 
             return documents
+
+    async def get_similar_docs(self, seed_id: str, top_n: int = 10, pick_k: int = 4):
+        """Ingestion 서비스에서 seed 기준 유사 문서(distance 포함) 목록을 받습니다."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{self.base_url}/similar/{seed_id}",
+                params={"top_n": top_n, "pick_k": pick_k},
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return resp.json().get("candidates", [])
+
+    async def get_all_ids(self):
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{self.base_url}/all-ids", timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_posting(self, rec_idx: str):
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{self.base_url}/post/{rec_idx}", timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()

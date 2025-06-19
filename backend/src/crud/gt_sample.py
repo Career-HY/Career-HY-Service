@@ -5,9 +5,12 @@ from schemas.gt_sample import GTSampleCreate
 
 
 def create_gt_sample(db: Session, data: GTSampleCreate) -> GTSample:
+    # RelevantDoc 객체를 JSON 직렬화 가능한 dict 로 변환
+    rel = [item.dict() if hasattr(item, "dict") else item for item in data.relevant_ids]
+
     sample = GTSample(
         seed_rec_idx=data.seed_rec_idx,
-        relevant_ids=data.relevant_ids,
+        relevant_ids=rel,
         profile=data.profile,
         query=data.query,
     )

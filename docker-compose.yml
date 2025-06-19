@@ -31,6 +31,8 @@ services:
     volumes:
       - ./llm-service/src:/app/src
       - ./llm-service/logs:/app/logs
+    environment:
+      - VECTOR_STORE_PATH=/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma
 
   # crawler:
   #   build: ./crawler
