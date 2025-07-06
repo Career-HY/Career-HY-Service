@@ -29,10 +29,16 @@ async def _search_course_async(q: str, limit: int = 1):
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(url, params={"q": q, "limit": limit})
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        if not data:
+            return {"error": f"NO_RESULTS for keyword '{q}'"}
+        return data
 
 def _search_course(q: str, limit: int = 1):
-    return asyncio.run(_search_course_async(q=q, limit=limit))
+    data = asyncio.run(_search_course_async(q=q, limit=limit))
+    if not data:
+        return {"error": f"NO_RESULTS for keyword '{q}'"}
+    return data
 
 course_search_tool = StructuredTool.from_function(
     _search_course,

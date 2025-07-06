@@ -30,10 +30,14 @@ class GTAgent:
             "당신은 채용공고를 분석해 해당 공고들에 꼭 맞는 3-4학년 학생 프로필을 작성하는 전문가입니다.\n"
             "profile 필드는 JSON 형태이어야 하며 major, catalogs, interest_job, certification 키를 포함해야 합니다.\n"
             "catalogs 필드는 백엔드 search_course_catalog 응답 객체(id, course_name, course_code, credit_units, instructor, total_credits 등)를 그대로 원소로 갖는 리스트여야 합니다. 예: [{{\"id\": 2746, \"course_name\": \"AI+X:딥러닝\", \"course_code\": \"AIX0003\", \"credit_units\": \"100단위\", \"instructor\": \"원영준\", \"total_credits\": \"3.0\"}}].\n"
-            "catalogs를 채우기 위해서는 search_course_catalog 툴을 활용하세요. 키워드는 관련 과목명(예: '딥러닝', '컴퓨터비전') 또는 개설학과명(예: '컴퓨터소프트웨어학부')을 사용하여 검색할 수 있습니다. 응답 리스트 중 가장 적합한 1~3개 과목만 선택하세요.\n"
-            "catalogs의 개수는 15~20개 사이로 선택하세요.\n"
+            "catalogs를 채우기 위해서는 search_course_catalog 툴을 활용하세요. 키워드는 관련 과목명(예: '딥러닝', '컴퓨터비전') 또는 개설학과명(예: '컴퓨터소프트웨어학부')을 사용하여 검색할 수 있습니다.\n"
+            "catalogs를 채우기 위해 여러번 search_course_catalog 툴을 호출해야 할 수 있습니다. 여러 번 사용하는 동안 키워드를 다양하게 변경하여 검색하세요.(해당 프로필과 적절한 키워드로 검색하는 것이 중요합니다.)\n"
+            "search_course_catalog 툴 사용시 특정 키워드에 대해 빈 값이 반환되면 적절한 다른 키워드를 사용하여 검색하세요.\n"
+            "catalogs의 개수는 반드시 15~20개 사이로 채워야 합니다.\n"
+            "catalogs의 course_name이 중복되지 않도록 채워야 합니다.\n"
             "채용공고의 본문 내용을 참고해야겠다 생각이 들면 get_job_posting 툴을 활용하세요.\n"
             "query 필드는 학생이 챗봇에게 물어볼 하나의 질문 문장입니다.\n"
+            "학생은 챗봇에게 주로 본인 상황에 맞는 채용공고를 추천해 줄 것을 질문합니다. (예: '나는 java로 프로젝트를 몇 번 해봤고 서버 개발자가 되고 싶어. 나에게 맞는 채용 공고를 추천해줄래?', '나는 인사관리 하는 것에 관심이 있어. 나에게 맞는 채용 공고를 추천해줄래?')\n"
             "반드시 JSON 스키마 {{profile, query, relevant_ids}} 로만 응답하세요."
         )
         prompt = ChatPromptTemplate.from_messages([
@@ -42,7 +46,7 @@ class GTAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
         agent = create_openai_functions_agent(llm=llm, tools=tools, prompt=prompt)
-        self.executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=50)
+        self.executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=100)
 
     # -------------------- 유사 문서 검색 --------------------
     async def _all_ids(self) -> List[str]:
@@ -97,31 +101,66 @@ class GTAgent:
 
         logger.info("✅ LLM 에이전트 응답 수신 (경과 %.2f초)", time.perf_counter() - start_ts)
 
-        # ---------------- 결과 파싱 ----------------
-        if isinstance(result, dict) and "output" in result:
-            raw = result["output"]  # 에이전트 최종 응답 텍스트
-        else:
-            raw = result  # str or dict 그대로 처리
+        for attempt in range(3):
+            # ---------------- 결과 파싱 ----------------
+            if isinstance(result, dict) and "output" in result:
+                raw = result["output"]
+            else:
+                raw = result
 
-        if isinstance(raw, str):
-            try:
-                cleaned = re.sub(r"```.*?\n|```", "", raw, flags=re.S)
-                m = re.search(r"\{.*\}", cleaned, flags=re.S)
-                if m:
-                    cleaned = m.group(0)
-                cleaned2 = cleaned.replace("'", '"')
-                data = json.loads(cleaned2)
-            except Exception as e:
-                logger.error("❌ JSON 파싱 실패 | raw(앞 300자)=%s", raw[:300])
+            data = None
+            if isinstance(raw, str):
                 try:
-                    data = ast.literal_eval(cleaned)
+                    cleaned = re.sub(r"```.*?\n|```", "", raw, flags=re.S)
+                    m = re.search(r"\{.*\}", cleaned, flags=re.S)
+                    if m:
+                        cleaned = m.group(0)
+                    cleaned2 = cleaned.replace("'", '"')
+                    data = json.loads(cleaned2)
                 except Exception:
-                    logger.exception("ast.literal_eval 재시도 실패 – 결과 파싱 불가")
-                    raise e
-        elif isinstance(raw, dict):
-            data = raw
-        else:
-            raise ValueError(f"Unexpected agent output type: {type(raw)}")
+                    try:
+                        data = ast.literal_eval(cleaned)
+                    except Exception:
+                        data = None
+            elif isinstance(raw, dict):
+                data = raw
+
+            # ---------- 유효성 검사 ----------
+            valid = False
+            reason = ""
+            if data and isinstance(data, dict) and "profile" in data:
+                catalogs = data["profile"].get("catalogs", [])
+                # 중복 제거 후 개수 확인
+                seen = set()
+                dup = False
+                for c in catalogs:
+                    key = (c.get("course_code") or c.get("course_name"))
+                    if key in seen:
+                        dup = True
+                        break
+                    seen.add(key)
+                if dup:
+                    reason = "중복 과목 존재"
+                elif len(catalogs) < 15:
+                    reason = f"과목 수 부족({len(catalogs)})"
+                else:
+                    valid = True
+
+            if valid:
+                break  # validation passed
+
+            # ---------------- 피드백 메시지로 재시도 ----------------
+            feedback_msg = (
+                f"이전 출력의 문제가 있습니다: {reason}. \n"
+                "catalogs 필드는 반드시 중복 없이 15~20개 과목을 포함해야 합니다. \n"
+                "중복을 제거하고 부족하면 search_course_catalog를 추가 호출하여 채워주세요. \n"
+                "JSON 스키마 {profile, query, relevant_ids} 로만 응답하세요."
+            )
+            logger.info("🔄 재시도 %d - 이유: %s", attempt + 1, reason)
+            result = await self.executor.ainvoke({"input": feedback_msg})
+
+        if not data:
+            raise RuntimeError("GTAgent failed to produce valid JSON after retries")
 
         data["seed_rec_idx"] = seed
         data["relevant_ids"] = relevant_ids
