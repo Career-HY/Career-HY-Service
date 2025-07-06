@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     INGESTION_REQUEST_TIMEOUT: float = 30.0  # 초
     MAX_DOCUMENTS: int = 10  # 검색할 최대 문서 수
 
+    # Backend API 설정 (GT 저장용)
+    BACKEND_API_URL: str = "http://backend:5001"
+    ADMIN_API_KEY: str = ""
+
+    # Chroma Persist 경로 (GTAgent에서 사용)
+    VECTOR_STORE_PATH: str = ""
+
     # LLM 설정
     MAX_TOKENS: int = 1000
     TEMPERATURE: float = 0.7

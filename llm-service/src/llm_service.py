@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.routes import router
+from src.api.routes import router as main_router
+from src.api.routes_gt import router as gt_router
 from src.config.config import settings
 from src.utils.logging import setup_logging
 import logging
@@ -29,7 +30,8 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(router)
+app.include_router(main_router)
+app.include_router(gt_router)
 
 
 @app.get("/")

@@ -174,3 +174,40 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
             status_code=500,
             detail=f"벡터 검색 테스트 중 오류 발생: {str(e)}",
         )
+
+
+@router.get("/similar/{seed_id}")
+async def similar_docs(seed_id: str, top_n: int = 10, pick_k: int = 4):
+    """시드 채용공고 기준 유사 문서 목록(distance 포함) 반환"""
+    from storage.vector_store import get_similar_postings
+
+    candidates = get_similar_postings(
+        seed_id=seed_id,
+        persist_dir=PERSIST_DIR,
+        top_n=top_n,
+        pick_k=pick_k,
+    )
+
+    return {"seed_rec_idx": seed_id, "candidates": candidates}
+
+
+@router.get("/all-ids")
+async def all_ids():
+    """컬렉션에 존재하는 모든 rec_idx 리스트 반환"""
+    from storage.vector_store import get_all_rec_ids
+    ids = get_all_rec_ids(PERSIST_DIR)
+    return ids
+
+
+@router.get("/post/{rec_idx}")
+async def get_post(rec_idx: str):
+    """단일 rec_idx에 대한 메타데이터와 텍스트 일부 반환"""
+    import chromadb
+    client = chromadb.PersistentClient(path=PERSIST_DIR)
+    col = client.get_or_create_collection(name="job-postings")
+    data = col.get(ids=[rec_idx], include=["metadatas", "documents"])
+    if not data["metadatas"]:
+        raise HTTPException(status_code=404, detail="rec_idx not found")
+    meta = data["metadatas"][0]
+    excerpt = data["documents"][0][:500]
+    return {"rec_idx": rec_idx, "metadata": meta, "excerpt": excerpt}
