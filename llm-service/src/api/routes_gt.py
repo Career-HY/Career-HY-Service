@@ -9,6 +9,7 @@ from src.api.models_gt import (
 )
 from src.services.gt_agent import GTAgent
 from src.services.backend_client import BackendClient
+from src.services.gt_batch_generator import GTBatchGenerator
 
 router = APIRouter()
 
@@ -30,16 +31,12 @@ async def generate_gt(request: GTGenerateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# -----------------------------------------------------------------------------
-# 🆕 배치 GT 생성 엔드포인트 (Skeleton)
-# -----------------------------------------------------------------------------
-
 
 @router.post(
     "/gt/generate-batch",
     response_model=GTBatchGenerateResponse,
     summary="여러 개의 Ground Truth 샘플을 한 번에 생성",
-    description="count 개수만큼 GT 샘플을 생성하여 백엔드에 저장합니다. 현재는 스켈레톤 구현으로, 실제 생성 로직은 추후 커밋에서 추가됩니다.",
+    description="count 개수만큼 GT 샘플을 생성하여 백엔드에 저장합니다.",
 )
 async def generate_gt_batch(request: GTBatchGenerateRequest):
 
@@ -49,10 +46,12 @@ async def generate_gt_batch(request: GTBatchGenerateRequest):
         request.num_similar,
     )
 
-    # 추후 구현 예정
+    generator = GTBatchGenerator()
+    ids, errors = await generator.generate(request.count, request.num_similar)
+
     return GTBatchGenerateResponse(
-        generated=0,
-        failed=0,
-        ids=[],
-        errors=[],
+        generated=len(ids),
+        failed=len(errors),
+        ids=ids,
+        errors=errors,
     ) 
