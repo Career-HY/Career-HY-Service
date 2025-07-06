@@ -1,10 +1,19 @@
 from fastapi import APIRouter, HTTPException
+import logging
+from fastapi import Body
 
-from src.api.models_gt import GTGenerateRequest
+from src.api.models_gt import (
+    GTGenerateRequest,
+    GTBatchGenerateRequest,
+    GTBatchGenerateResponse,
+)
 from src.services.gt_agent import GTAgent
 from src.services.backend_client import BackendClient
 
 router = APIRouter()
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 
 @router.post("/gt/generate")
@@ -18,4 +27,32 @@ async def generate_gt(request: GTGenerateRequest):
 
         return {**gt_data, "id": new_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------------------------------------------------------------
+# 🆕 배치 GT 생성 엔드포인트 (Skeleton)
+# -----------------------------------------------------------------------------
+
+
+@router.post(
+    "/gt/generate-batch",
+    response_model=GTBatchGenerateResponse,
+    summary="여러 개의 Ground Truth 샘플을 한 번에 생성",
+    description="count 개수만큼 GT 샘플을 생성하여 백엔드에 저장합니다. 현재는 스켈레톤 구현으로, 실제 생성 로직은 추후 커밋에서 추가됩니다.",
+)
+async def generate_gt_batch(request: GTBatchGenerateRequest):
+
+    logger.info(
+        "[generate_gt_batch] 요청 수신 | count=%s | num_similar=%s",
+        request.count,
+        request.num_similar,
+    )
+
+    # 추후 구현 예정
+    return GTBatchGenerateResponse(
+        generated=0,
+        failed=0,
+        ids=[],
+        errors=[],
+    ) 
