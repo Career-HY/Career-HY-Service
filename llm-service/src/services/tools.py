@@ -23,7 +23,7 @@ job_posting_tool = StructuredTool.from_function(
     coroutine=_get_job_posting_async,
 )
 
-async def _search_course_async(q: str, limit: int = 1):
+async def _search_course_async(q: str, limit: int = 20):
     """백엔드 수강편람 검색 API를 호출하여 과목 정보를 반환합니다."""
     url = f"{settings.BACKEND_API_URL}/courses/search"
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -34,7 +34,7 @@ async def _search_course_async(q: str, limit: int = 1):
             return {"error": f"NO_RESULTS for keyword '{q}'"}
         return data
 
-def _search_course(q: str, limit: int = 1):
+def _search_course(q: str, limit: int = 20):
     data = asyncio.run(_search_course_async(q=q, limit=limit))
     if not data:
         return {"error": f"NO_RESULTS for keyword '{q}'"}
