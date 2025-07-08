@@ -10,12 +10,14 @@ from src.services.backend_client import BackendClient
 class GTBatchGenerator:
     """Ground Truth 샘플을 batch 로 생성·저장하는 서비스 레이어."""
 
-    DEFAULT_CONCURRENCY = 5  # 동시 작업 개수 제한
+    DEFAULT_CONCURRENCY = 2  # 동시 작업 개수 제한
+    DEFAULT_DELAY_BETWEEN_TASKS = 2.0  # 작업 간 지연 시간 (초)
 
-    def __init__(self, agent: GTAgent | None = None, concurrency: int | None = None):
+    def __init__(self, agent: GTAgent | None = None, concurrency: int | None = None, delay: float | None = None):
         self.agent = agent or GTAgent()
         self.logger = logging.getLogger(__name__)
         self.concurrency = concurrency or self.DEFAULT_CONCURRENCY
+        self.delay = delay or self.DEFAULT_DELAY_BETWEEN_TASKS
 
     async def _create_and_store_sample(self, idx: int, num_similar: int, sem: asyncio.Semaphore) -> Tuple[int | None, Dict[str, str] | None]:
         """단일 GT 샘플을 생성하고 저장한다. 성공 시 new_id 반환, 실패 시 error dict 반환."""
@@ -23,6 +25,10 @@ class GTBatchGenerator:
             try:
                 t0 = time.perf_counter()
                 self.logger.info("[%d] GT 샘플 생성 시작", idx)
+
+                # Rate limit 방지를 위한 지연
+                if idx > 1:  # 첫 번째 작업은 지연 없이 시작
+                    await asyncio.sleep(self.delay)
 
                 # 1) 샘플 생성
                 gt_data = await self.agent.create_sample(None, num_similar)
