@@ -128,8 +128,8 @@ class GTAgent:
 
         logger.info("✅ LLM 에이전트 응답 수신 (경과 %.2f초)", time.perf_counter() - start_ts)
 
-        # 최대 3회 재시도
-        for attempt in range(3):
+        # 최대 5회 재시도
+        for attempt in range(5):
             # ---------------- 결과 파싱 ----------------
             if isinstance(result, dict) and "output" in result:
                 raw = result["output"]
