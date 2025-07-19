@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from schemas.gt_sample import GTSampleCreate, GTSampleRead
-from crud.gt_sample import create_gt_sample, get_gt_sample, list_gt_samples
+from crud.gt_sample import create_gt_sample, get_gt_sample, list_gt_samples, enrich_all_gt_metadata
 from db.session import get_db
 import os
 
@@ -37,4 +37,28 @@ def read_sample(sample_id: int, _: bool = Depends(verify_api_key), db: Session =
 
 @router.get("", response_model=List[GTSampleRead])
 def list_samples(skip: int = 0, limit: int = 100, _: bool = Depends(verify_api_key), db: Session = Depends(get_db)):
-    return list_gt_samples(db, skip, limit) 
+    return list_gt_samples(db, skip, limit)
+
+
+@router.post("/enrich-all-metadata")
+async def enrich_all_gt_metadata_endpoint(
+    _: bool = Depends(verify_api_key),
+    db: Session = Depends(get_db)
+):
+    """모든 GT 샘플의 메타데이터 보강"""
+    
+    try:
+        result = await enrich_all_gt_metadata(db)
+        
+        return {
+            "message": "모든 GT 샘플 메타데이터 보강 완료",
+            "total_samples": result["total"],
+            "success_count": result["success"], 
+            "failed_count": result["failed"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"메타데이터 보강 중 오류 발생: {str(e)}"
+        ) 
