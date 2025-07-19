@@ -27,5 +27,8 @@ class Settings:
     # LLM Service 설정
     LLM_SERVICE_URL: str = os.getenv("LLM_SERVICE_URL")
     LLM_REQUEST_TIMEOUT: float = 30.0
+    
+    # Ingestion Service 설정
+    INGESTION_SERVICE_URL: str = os.getenv("INGESTION_SERVICE_URL")
 
 settings = Settings()

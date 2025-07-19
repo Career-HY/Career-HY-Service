@@ -27,3 +27,7 @@ itsdangerous
 
 # HTTP 클라이언트 (LLM 서비스 통신용)
 httpx
+
+# Excel 파일 생성용
+pandas
+openpyxl
