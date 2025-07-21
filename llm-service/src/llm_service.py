@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router as main_router
@@ -8,6 +9,12 @@ import logging
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
+
+# LangSmith 환경 변수 설정 (자동 트레이싱용)
+os.environ["LANGSMITH_TRACING"] = str(settings.LANGSMITH_TRACING).lower()
+os.environ["LANGSMITH_ENDPOINT"] = settings.LANGSMITH_ENDPOINT
+os.environ["LANGSMITH_API_KEY"] = settings.LANGSMITH_API_KEY
+os.environ["LANGSMITH_PROJECT"] = settings.LANGSMITH_PROJECT
 
 # 로깅 설정 초기화
 setup_logging()

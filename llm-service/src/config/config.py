@@ -34,11 +34,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    # Langsmith 설정
-    LANGCHAIN_TRACING_V2: bool = True
-    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
-    LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "career-hi-rag"
+    LANGSMITH_TRACING: bool = True
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "Career-HY"
 
     class Config:
         env_file = ".env"
