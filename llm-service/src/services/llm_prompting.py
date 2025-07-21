@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
+from langsmith import traceable
 from ..api.models import (
     LLMResponse,
     RecommendedJob,
@@ -48,7 +49,6 @@ class JobRecommendationResponse(BaseModel):
     recommended_job_indices: List[int] = Field(
         description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열",
         max_items=3,
-        # default=[]
         min_items=3,
     )
     overall_advice: str = Field(
@@ -57,7 +57,6 @@ class JobRecommendationResponse(BaseModel):
     recommendation_reasons: List[str] = Field(
         description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열",
         max_items=3,
-        # default=[]
         min_items=3,
     )
     practical_tips: str = Field(
@@ -322,6 +321,7 @@ class LLMPromptingService:
 
         return base_prompt + "\n다음은 사용자의 프로필과 관심사에 맞춰 검색된 " f"{NUM_SEARCH_DOCS}개 채용공고입니다:\n" + formatted_docs + guidance
 
+    @traceable(name="llm_response_generation")
     async def generate_response(
         self,
         query: str,
@@ -391,6 +391,7 @@ class LLMPromptingService:
             logger.error(f"💥 LLM 응답 생성 중 오류: {str(e)}")
             raise
 
+    @traceable(name="consultation_response")
     async def _generate_consultation_response(
         self,
         *,
@@ -426,6 +427,7 @@ class LLMPromptingService:
             logger.error(f"상담 응답 생성 실패: {str(e)}")
             raise
 
+    @traceable(name="recommendation_response")
     async def _generate_recommendation_response(
         self,
         documents: List[JobPosting],
@@ -492,6 +494,7 @@ class LLMPromptingService:
     # 외부 공개용: 의도 분류 래퍼 (검색 여부 판단용)
     # --------------------------------------------------------------
 
+    @traceable(name="query_intent_classification")
     async def classify_query_intent(
         self, query: str, chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> IntentType:

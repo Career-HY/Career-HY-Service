@@ -11,6 +11,7 @@ import re
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_openai_functions_agent, AgentExecutor
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langsmith import traceable
 
 from src.services.tools import job_posting_tool, course_search_tool
 from src.config.config import settings
@@ -88,6 +89,7 @@ class GTAgent:
         return [{"rec_idx": seed, "distance": 0.0}] + candidates
 
     # -------------------- 공개 API --------------------
+    @traceable(name="gt_sample_creation")
     async def create_sample(self, seed_rec_idx: str | None, num_similar: int) -> Dict[str, Any]:
         start_ts = time.perf_counter()
         logger.info("🚩 [GTAgent] create_sample 시작 | seed_rec_idx=%s | num_similar=%s", seed_rec_idx, num_similar)
