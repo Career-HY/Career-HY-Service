@@ -4,8 +4,10 @@ crawler/.env
 ingestion/.env
 llm-service/.env
 
+
 # ingestion 파이프라인 중간/최종 결과 (벡터 DB) 무시
 ingestion/data/
+experiment/data/
 
 # 초기 데이터셋
 #ingestion/dataset/

@@ -1,0 +1,8 @@
+embedding_model: "text-embedding-ada-002"
+vector_db: "chroma"
+chunking_strategy: "by_document"
+retriever_top_k: 5
+# 추가 옵션 예시 (필요시 주석 해제)
+# chunk_size: 1000
+# chunk_overlap: 100
+# gt_data_path: "../data/gt_profiles.csv" 
