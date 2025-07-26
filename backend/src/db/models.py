@@ -228,6 +228,7 @@ class GTSample(Base):
     relevant_ids = Column(JSON, nullable=False)  # ["43681382", ...]
     profile = Column(JSON, nullable=False)
     query = Column(Text, nullable=False)
+    version = Column(String(20), nullable=True, index=True)  # 수동으로 설정될 버전
     relevant_docs_metadata = Column(JSON, nullable=True)  # 관련 문서 메타데이터
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 

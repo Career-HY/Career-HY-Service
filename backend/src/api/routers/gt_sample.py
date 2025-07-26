@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Header, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -33,16 +33,18 @@ def create_sample(data: GTSampleCreate, _: bool = Depends(verify_api_key), db: S
 def export_gt_data_to_excel_endpoint(
     background_tasks: BackgroundTasks,
     _: bool = Depends(verify_api_key),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    version: Optional[str] = Query(None, description="버전 필터")
 ):
     """GT 데이터를 Excel 파일로 export"""
     
     try:
         # CRUD 함수 호출
-        temp_file_path = export_gt_data_to_excel(db)
+        temp_file_path = export_gt_data_to_excel(db, version=version)
         
         # 파일명 생성
-        filename = f"GT_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        version_suffix = f"_v{version}" if version else "_all_versions"
+        filename = f"GT_Analysis{version_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
         # 백그라운드에서 임시 파일 삭제
         background_tasks.add_task(lambda: os.unlink(temp_file_path))

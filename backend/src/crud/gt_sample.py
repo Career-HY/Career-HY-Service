@@ -34,8 +34,13 @@ def get_gt_sample(db: Session, sample_id: int) -> Optional[GTSample]:
     return db.query(GTSample).filter(GTSample.id == sample_id).first()
 
 
-def list_gt_samples(db: Session, skip: int = 0, limit: int = 200) -> List[GTSample]:
-    return db.query(GTSample).offset(skip).limit(limit).all()
+def list_gt_samples(db: Session, skip: int = 0, limit: int = 200, version: Optional[str] = None) -> List[GTSample]:
+    query = db.query(GTSample)
+    
+    if version:
+        query = query.filter(GTSample.version == version)
+    
+    return query.offset(skip).limit(limit).all()
 
 
 async def enrich_all_gt_metadata(db: Session) -> Dict[str, int]:
@@ -113,14 +118,20 @@ async def enrich_all_gt_metadata(db: Session) -> Dict[str, int]:
     }
 
 
-def export_gt_data_to_excel(db: Session) -> str:
+def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
     """GT 데이터를 Excel 파일로 export하고 임시 파일 경로 반환"""
     
-    # GT 데이터 조회
-    gt_samples = db.query(GTSample).all()
+    # GT 데이터 조회 (버전 필터링 포함)
+    query = db.query(GTSample)
+    
+    if version:
+        query = query.filter(GTSample.version == version)
+        
+    gt_samples = query.all()
     
     if not gt_samples:
-        raise ValueError("GT 샘플이 없습니다")
+        version_msg = f" (버전: {version})" if version else ""
+        raise ValueError(f"GT 샘플이 없습니다{version_msg}")
     
     # 데이터 변환
     excel_data = []
