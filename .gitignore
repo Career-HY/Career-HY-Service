@@ -21,3 +21,10 @@ __pycache__/
 
 # 노드 모듈
 node_modules/
+
+# 시스템 파일
+.DS_Store
+
+# GT 파일, 실험 결과 파일
+experiments/data/ground_truth/*
+experiments/data/results/*
