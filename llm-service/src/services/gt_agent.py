@@ -29,7 +29,7 @@ class GTAgent:
         tools = [job_posting_tool, course_search_tool]
         system_prompt = (
             "당신은 채용공고를 분석해 해당 공고들에 꼭 맞는 3-4학년 학생 프로필을 작성하는 전문가입니다.\n"
-            "profile 필드는 JSON 형태이어야 하며 major, catalogs, interest_job, certification 키를 포함해야 합니다.\n"
+            "profile 필드는 JSON 형태이어야 하며 major, catalogs, interest_job, certification, club_activities 키를 포함해야 합니다.\n"
             "catalogs 필드는 백엔드 search_course_catalog 응답 객체(id, course_name, course_code, credit_units, instructor, total_credits 등)를 그대로 원소로 갖는 리스트여야 합니다. 예: [{{\"id\": 2746, \"course_name\": \"AI+X:딥러닝\", \"course_code\": \"AIX0003\", \"credit_units\": \"100단위\", \"instructor\": \"원영준\", \"total_credits\": \"3.0\"}}].\n"
             "catalogs를 채우기 위해서는 search_course_catalog 툴을 활용하세요. 키워드는 관련 과목명(예: '딥러닝', '컴퓨터비전') 또는 개설학과명(예: '컴퓨터소프트웨어학부')을 사용하여 검색할 수 있습니다.\n"
             "catalogs를 채우기 위해 여러번 search_course_catalog 툴을 호출해야 할 수 있습니다. 여러 번 사용하는 동안 키워드를 다양하게 변경하여 검색하세요.(해당 프로필과 적절한 키워드로 검색하는 것이 중요합니다.)\n"
@@ -38,6 +38,7 @@ class GTAgent:
             "catalogs의 course_code 및 course_name이 중복되지 않도록 채워야 합니다. 동일한 course_code 및 course_name을 가진 과목은 절대 포함하지 마세요.\n"
             "채용공고의 본문 내용을 참고해야겠다 생각이 들면 get_job_posting 툴을 활용하세요.\n"
             "query 필드는 학생이 챗봇에게 물어볼 하나의 질문 문장입니다.\n"
+            "club_activities 필드는 학생의 동아리 활동, 대외활동, 프로젝트 경험 등을 포함하는 문자열입니다. 해당 채용공고와 관련된 실제적이고 구체적인 활동들을 작성하세요. (예: '프로그래밍 동아리 활동, 알고리즘 스터디 운영', '마케팅 동아리, 창업 경진대회 참가')\n"
             "학생은 챗봇에게 주로 본인 상황에 맞는 채용공고를 추천해 줄 것을 질문합니다. (예: '나는 java로 프로젝트를 몇 번 해봤고 서버 개발자가 되고 싶어. 나에게 맞는 채용 공고를 추천해줄래?', '나는 인사관리 하는 것에 관심이 있어. 나에게 맞는 채용 공고를 추천해줄래?')\n"
             "반드시 JSON 스키마 {{profile, query, relevant_ids}} 로만 응답하세요."
         )

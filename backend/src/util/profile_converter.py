@@ -32,14 +32,18 @@ def convert_profile_to_llm_format(profile: ProfileRead, db: Session) -> Dict[str
         # 4. certification: certifications를 문자열 리스트로 변환
         certification = [cert.content for cert in profile.certifications if cert.content]
         
+        # 5. club_activities: club_activities를 문자열 리스트로 변환
+        club_activities = [activity.content for activity in profile.club_activities if activity.content]
+        
         result = {
             "major": major,
             "catalogs": catalogs,
             "interest_job": interest_job,
-            "certification": certification
+            "certification": certification,
+            "club_activities": club_activities
         }
         
-        logger.info(f"프로필 변환 완료: 전공={major}, 과목수={len(catalogs)}, 관심직무수={len(interest_job)}, 자격증수={len(certification)}")
+        logger.info(f"프로필 변환 완료: 전공={major}, 과목수={len(catalogs)}, 관심직무수={len(interest_job)}, 자격증수={len(certification)}, 동아리활동수={len(club_activities)}")
         return result
         
     except Exception as e:

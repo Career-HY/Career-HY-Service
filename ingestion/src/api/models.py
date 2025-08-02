@@ -47,7 +47,8 @@ class RetrievalRequest(BaseModel):
     catalogs: List[CourseInfo]
     interest_job: List[str]
     certification: List[str]
-    query: Optional[str] = None  # 사용자 질문 (선택적)
+    club_activities: List[str] = [] 
+    query: Optional[str] = None
 
 
 class RetrievalResponse(BaseModel):
