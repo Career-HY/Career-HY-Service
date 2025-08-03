@@ -10,8 +10,8 @@ from src.services.backend_client import BackendClient
 class GTBatchGenerator:
     """Ground Truth 샘플을 batch 로 생성·저장하는 서비스 레이어."""
 
-    DEFAULT_CONCURRENCY = 2  # 동시 작업 개수 제한
-    DEFAULT_DELAY_BETWEEN_TASKS = 2.0  # 작업 간 지연 시간 (초)
+    DEFAULT_CONCURRENCY = 1  # 동시 작업 개수 제한
+    DEFAULT_DELAY_BETWEEN_TASKS = 3.0  # 작업 간 지연 시간 (초)
 
     def __init__(self, agent: GTAgent | None = None, concurrency: int | None = None, delay: float | None = None):
         self.agent = agent or GTAgent()

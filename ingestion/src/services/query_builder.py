@@ -2,7 +2,7 @@
 사용자 프로필 기반 검색 쿼리 생성 모듈
 """
 from typing import List, Dict, Any, Optional
-from api.models import CourseInfo  # CourseInfo 모델 import 추가
+from api.models import CourseInfo 
 
 
 class ProfileQueryBuilder:
@@ -11,10 +11,11 @@ class ProfileQueryBuilder:
     @staticmethod
     def create_profile_query(
         major: str, 
-        catalogs: List[CourseInfo],  # 타입 힌트를 CourseInfo로 변경
+        catalogs: List[CourseInfo],  
         interest_job: List[str], 
         certification: List[str],
-        query: Optional[str] = None  # 사용자 질문 추가
+        club_activities: Optional[List[str]] = None, 
+        query: Optional[str] = None  
     ) -> str:
         """
         사용자 프로필 기반 검색 쿼리 생성
@@ -24,30 +25,35 @@ class ProfileQueryBuilder:
             catalogs: 강의 목록 (CourseInfo 객체 리스트)
             interest_job: 관심 직무 목록  
             certification: 자격증 목록
-            query: 사용자 질문 (선택적)
+            club_activities: 동아리/대외활동 목록 
+            query: 사용자 질문 
             
         Returns:
             str: 생성된 검색 쿼리
         """
         query_parts = []
 
-        # 사용자 질문 추가 (있는 경우 최상단에 배치)
+        # 사용자 질문
         if query:
             query_parts.append(f"질문: {query}")
 
-        # 전공 정보 추가
+        # 전공 정보
         if major:
             query_parts.append(f"전공: {major}")
 
-        # 관심 직무 추가
+        # 관심 직무
         if interest_job:
             query_parts.append(f"관심 직무: {', '.join(interest_job)}")
 
-        # 자격증 정보 추가
+        # 자격증 정보
         if certification:
             query_parts.append(f"자격증: {', '.join(certification)}")
 
-        # 강의 정보 전체 추가
+        # 동아리/대외활동 정보
+        if club_activities:
+            query_parts.append(f"동아리/대외활동: {', '.join(club_activities)}")
+
+        # 강의 정보 전체
         if catalogs:
             query_parts.append("수강 이력:")
             for course in catalogs:

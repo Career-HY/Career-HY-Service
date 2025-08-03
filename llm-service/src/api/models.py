@@ -44,6 +44,7 @@ class RetrievalRequest(BaseModel):
     catalogs: List[CourseInfo]
     interest_job: List[str]
     certification: List[str]
+    club_activities: List[str] = [] 
 
 
 class ChatHistoryMessage(BaseModel):
