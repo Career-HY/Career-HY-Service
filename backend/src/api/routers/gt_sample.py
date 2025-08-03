@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from schemas.gt_sample import GTSampleCreate, GTSampleRead
-from crud.gt_sample import create_gt_sample, get_gt_sample, list_gt_samples, enrich_all_gt_metadata, export_gt_data_to_excel
+from crud.gt_sample import create_gt_sample, get_gt_sample, list_gt_samples, enrich_all_gt_metadata, export_gt_data_to_csv
 from db.session import get_db
 import os
 
@@ -29,29 +29,29 @@ def create_sample(data: GTSampleCreate, _: bool = Depends(verify_api_key), db: S
     return sample
 
 
-@router.get("/export-excel")
-def export_gt_data_to_excel_endpoint(
+@router.get("/export-csv")
+def export_gt_data_to_csv_endpoint(
     background_tasks: BackgroundTasks,
     _: bool = Depends(verify_api_key),
     db: Session = Depends(get_db),
     version: Optional[str] = Query(None, description="버전 필터")
 ):
-    """GT 데이터를 Excel 파일로 export"""
+    """GT 데이터를 CSV 파일로 export"""
     
     try:
         # CRUD 함수 호출
-        temp_file_path = export_gt_data_to_excel(db, version=version)
+        temp_file_path = export_gt_data_to_csv(db, version=version)
         
         # 파일명 생성
         version_suffix = f"_v{version}" if version else "_all_versions"
-        filename = f"GT_Analysis{version_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"GT_Analysis{version_suffix}_{datetime.now().strftime('%Y%m%d')}.csv"
         
         # 백그라운드에서 임시 파일 삭제
         background_tasks.add_task(lambda: os.unlink(temp_file_path))
         
         return FileResponse(
             temp_file_path,
-            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            media_type='text/csv',
             filename=filename
         )
         
@@ -60,7 +60,7 @@ def export_gt_data_to_excel_endpoint(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Excel 파일 생성 중 오류 발생: {str(e)}"
+            detail=f"CSV 파일 생성 중 오류 발생: {str(e)}"
         )
 
 

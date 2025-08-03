@@ -6,7 +6,7 @@ import pandas as pd
 import tempfile
 import os
 from datetime import datetime
-from openpyxl.styles import PatternFill
+
 from db.models import GTSample, CourseCatalog
 from schemas.gt_sample import GTSampleCreate
 from util.ingestion_client import IngestionClient
@@ -175,17 +175,20 @@ async def enrich_all_gt_metadata(db: Session) -> Dict[str, int]:
     }
 
 
-def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
-    """GT 데이터를 Excel 파일로 export하고 임시 파일 경로 반환"""
+def export_gt_data_to_csv(db: Session, version: Optional[str] = None) -> str:
+    """GT 데이터를 CSV 파일로 export하고 파일 경로 반환"""
     
-    # GT 데이터 조회
-    gt_samples = db.query(GTSample).all()
+    # GT 데이터 조회 (version 필터링 적용)
+    query = db.query(GTSample)
+    if version:
+        query = query.filter(GTSample.version == version)
+    gt_samples = query.all()
     
     if not gt_samples:
         raise ValueError("GT 샘플이 없습니다")
     
     # 데이터 변환
-    excel_data = []
+    csv_data = []
     
     for sample in gt_samples:
         profile = sample.profile
@@ -237,7 +240,7 @@ def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
         # 관련 공고가 없는 경우 기본 행 추가
         docs = metadata.get("docs", [])
         if not docs:
-            excel_data.append({
+            csv_data.append({
                 "GT_ID": sample.id,
                 "학생_전공": profile.get("major", ""),
                 "학생_관심분야": interest_list,
@@ -254,7 +257,7 @@ def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
             for idx, doc in enumerate(docs):
                 distance = doc.get("distance", 0)
                 
-                excel_data.append({
+                csv_data.append({
                     "GT_ID": sample.id,
                     "학생_전공": profile.get("major", ""),
                     "학생_관심분야": interest_list,
@@ -268,60 +271,13 @@ def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
                 })
     
     # DataFrame 생성
-    df = pd.DataFrame(excel_data)
+    df = pd.DataFrame(csv_data)
     
     # 임시 파일 생성
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
     
-    # Excel 파일 생성 및 스타일링
-    with pd.ExcelWriter(temp_file.name, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='GT분석', index=False)
-        
-        workbook = writer.book
-        worksheet = writer.sheets['GT분석']
-        
-        # 색상 정의
-        color1 = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")  # 연한 파랑
-        color2 = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")  # 연한 회색
-        
-        # GT_ID별로 색상 번갈아가며 적용
-        current_gt_id = None
-        color_index = 0
-        
-        for row_num, row in enumerate(worksheet.iter_rows(min_row=2), start=2):
-            gt_id = row[0].value  # GT_ID 컬럼
-            
-            # 새로운 GT_ID가 나타나면 색상 변경
-            if gt_id != current_gt_id:
-                current_gt_id = gt_id
-                color_index = (color_index + 1) % 2
-            
-            # 현재 색상 선택
-            fill_color = color1 if color_index == 0 else color2
-            
-            # 행 전체에 색상 적용
-            for cell in row:
-                cell.fill = fill_color
-        
-        # 컬럼 너비 자동 조정
-        for column in worksheet.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            
-            column_name = column[0].value if column[0].value else ""
-            if column_name in ['수강과목', '완전한_검색_쿼리', '학생_질문']:
-                adjusted_width = min(max_length + 2, 80)
-            else:
-                adjusted_width = min(max_length + 2, 30)
-            
-            worksheet.column_dimensions[column_letter].width = adjusted_width
+    # CSV 파일 생성
+    df.to_csv(temp_file.name, index=False, encoding='utf-8-sig')
     
-    logger.info(f"Excel 파일 생성 완료: {temp_file.name}")
+    logger.info(f"CSV 파일 생성 완료: {temp_file.name}")
     return temp_file.name 
