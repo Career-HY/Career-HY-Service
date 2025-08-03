@@ -175,7 +175,7 @@ async def enrich_all_gt_metadata(db: Session) -> Dict[str, int]:
     }
 
 
-def export_gt_data_to_excel(db: Session) -> str:
+def export_gt_data_to_excel(db: Session, version: Optional[str] = None) -> str:
     """GT 데이터를 Excel 파일로 export하고 임시 파일 경로 반환"""
     
     # GT 데이터 조회
