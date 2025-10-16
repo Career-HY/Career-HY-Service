@@ -44,7 +44,7 @@ app.include_router(gt_sample.router)
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi Backend!! 10/16 17:06 test"}
+    return {"message": "Welcome to Career-Hi Backend!! 10/16 22:34 test"}
 
 
 @app.get("/health")
