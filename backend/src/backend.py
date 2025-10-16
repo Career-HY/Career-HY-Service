@@ -47,6 +47,7 @@ def root():
     return {"message": "Welcome to Career-Hi Backend!! 10/16 22:34 test"}
 
 
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT 1"))
