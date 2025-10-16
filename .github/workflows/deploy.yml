@@ -2,7 +2,7 @@ name: Build & Deploy to Docker Swarm
 
 on:
   push:
-    branches: [ "dev" ]  # ← main이 아니라 dev 기준으로 변경
+    branches: [ "dev" ]  # ← 실제 배포 브랜치 기준
 
 permissions:
   contents: read
@@ -10,7 +10,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  ORG: ${{ github.repository_owner && github.repository_owner.toLowerCase() }}
+  ORG: career-hy  # ← GHCR은 반드시 소문자만 허용하므로 하드코딩
   BACKEND_SERVICE: rag_backend
   LLM_SERVICE: rag_llm-service
   INGEST_SERVICE: rag_ingestion
