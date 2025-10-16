@@ -1,8 +1,8 @@
-name: Build & Deploy to Docker Swarm
+name: Build & Deploy to Docker Swarm (dev)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "dev" ]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ env:
 
 jobs:
   build:
-    name: Build & Push Images
+    name: Build & Push Docker Images
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,20 +36,20 @@ jobs:
             image: ghcr.io/career-hy/ingestion
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
+      - name: Login to GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push ${{ matrix.name }}
+      - name: Build & Push ${{ matrix.name }} image
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -62,45 +62,55 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Swarm
+    name: Deploy to Docker Swarm Cluster
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Write SSH key
+      - name: Write SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ci_key
           chmod 600 ~/.ssh/ci_key
           ssh-keyscan -H ${{ secrets.EC2_HOST_A }} >> ~/.ssh/known_hosts
 
-      - name: Deploy Backend
+      - name: Deploy Backend Service
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image ghcr.io/career-hy/backend:dev --update-order stop-first $BACKEND_SERVICE || docker service create --name $BACKEND_SERVICE --publish 5001:5001 ghcr.io/career-hy/backend:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} <<'EOF'
+          echo "🚀 Updating Backend Service..."
+          docker service update --image ghcr.io/career-hy/backend:dev --update-order stop-first $BACKEND_SERVICE || \
+          docker service create --name $BACKEND_SERVICE --publish 5001:5001 ghcr.io/career-hy/backend:dev
+          EOF
 
-      - name: Deploy LLM-Service
+      - name: Deploy LLM Service
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image ghcr.io/career-hy/llm-service:dev --update-order stop-first $LLM_SERVICE || docker service create --name $LLM_SERVICE ghcr.io/career-hy/llm-service:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} <<'EOF'
+          echo "🚀 Updating LLM Service..."
+          docker service update --image ghcr.io/career-hy/llm-service:dev --update-order stop-first $LLM_SERVICE || \
+          docker service create --name $LLM_SERVICE ghcr.io/career-hy/llm-service:dev
+          EOF
 
-      - name: Deploy Ingestion
+      - name: Deploy Ingestion Service
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image ghcr.io/career-hy/ingestion:dev --update-order stop-first $INGEST_SERVICE || docker service create --name $INGEST_SERVICE ghcr.io/career-hy/ingestion:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} <<'EOF'
+          echo "🚀 Updating Ingestion Service..."
+          docker service update --image ghcr.io/career-hy/ingestion:dev --update-order stop-first $INGEST_SERVICE || \
+          docker service create --name $INGEST_SERVICE ghcr.io/career-hy/ingestion:dev
+          EOF
 
-      - name: Check Swarm status
+      - name: Verify Swarm Status
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
+          echo "🔍 Checking Docker Swarm status..."
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} "docker service ls && docker node ls"
