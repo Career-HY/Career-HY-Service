@@ -1,51 +1,51 @@
-name: Deploy LLM Service
+# name: Deploy LLM Service
 
-on:
-  push:
-    branches: [ dev ]
-    paths: 
-      - 'llm-service/**'
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [ dev ]
+#     paths: 
+#       - 'llm-service/**'
+#   workflow_dispatch:
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v3
 
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.6
-      with:
-        host: ${{ secrets.LLM_SERVICE_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          # 최신 코드 받기
-          if [ -d "Carrer-Hi-RAG" ]; then
-            echo "📥 기존 코드 업데이트 중..."
-            cd Carrer-Hi-RAG
-            git pull origin dev
-          else
-            echo "📥 최신 코드 Clone 중..."
-            git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
-            cd Carrer-Hi-RAG
-            git checkout dev
-          fi
+#     - name: Deploy to EC2
+#       uses: appleboy/ssh-action@v0.1.6
+#       with:
+#         host: ${{ secrets.LLM_SERVICE_HOST }}
+#         username: ubuntu
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         script: |
+#           # 최신 코드 받기
+#           if [ -d "Carrer-Hi-RAG" ]; then
+#             echo "📥 기존 코드 업데이트 중..."
+#             cd Carrer-Hi-RAG
+#             git pull origin dev
+#           else
+#             echo "📥 최신 코드 Clone 중..."
+#             git clone https://github.com/Career-Hi/Carrer-Hi-RAG.git
+#             cd Carrer-Hi-RAG
+#             git checkout dev
+#           fi
           
-          # .env 파일 복사
-          if [ -f ~/.env ]; then
-            cp ~/.env .
-            echo "✅ .env 파일을 복사했습니다."
-          else
-            echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
-            exit 1
-          fi
+#           # .env 파일 복사
+#           if [ -f ~/.env ]; then
+#             cp ~/.env .
+#             echo "✅ .env 파일을 복사했습니다."
+#           else
+#             echo "❌ 홈 디렉토리에 .env 파일이 없습니다."
+#             exit 1
+#           fi
           
-          # 기존 컨테이너 정리 및 재시작
-          echo "🔄 LLM 서비스 재시작 중..."
-          docker-compose down || true
-          docker-compose up --build --detach llm-service
+#           # 기존 컨테이너 정리 및 재시작
+#           echo "🔄 LLM 서비스 재시작 중..."
+#           docker-compose down || true
+#           docker-compose up --build --detach llm-service
           
-          echo "🚀 LLM Service 배포가 완료되었습니다."
+#           echo "🚀 LLM Service 배포가 완료되었습니다."
