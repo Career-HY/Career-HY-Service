@@ -27,11 +27,11 @@ app.add_middleware(
 setup_logging()
 
 app.add_middleware(
-    SessionMiddleware, 
+    SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     same_site=settings.SESSION_COOKIE_SAMESITE,
     https_only=settings.SESSION_COOKIE_SECURE,
-    domain=settings.SESSION_COOKIE_DOMAIN
+    domain=settings.SESSION_COOKIE_DOMAIN,
 )
 app.include_router(user.router)
 app.include_router(profile.router)
@@ -41,9 +41,10 @@ app.include_router(chat.router)
 app.include_router(feedback.router)
 app.include_router(gt_sample.router)
 
+
 @app.get("/")
 def root():
-    return {"message": "Welcome to Career-Hi Backend!! 6/8 10:50 test"}
+    return {"message": "Welcome to Career-Hi Backend!! 10/16 4:08 test"}
 
 
 @app.get("/health")
