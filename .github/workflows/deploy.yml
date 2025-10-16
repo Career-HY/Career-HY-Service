@@ -1,0 +1,106 @@
+name: Build & Deploy to Docker Swarm
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: career-hy
+  BACKEND_SERVICE: rag_backend
+  LLM_SERVICE: rag_llm-service
+  INGEST_SERVICE: rag_ingestion
+
+jobs:
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            image: ghcr.io/career-hy/backend
+          - name: llm-service
+            context: ./llm-service
+            dockerfile: ./llm-service/Dockerfile
+            image: ghcr.io/career-hy/llm-service
+          - name: ingestion
+            context: ./ingestion
+            dockerfile: ./ingestion/Dockerfile
+            image: ghcr.io/career-hy/ingestion
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ matrix.image }}:dev
+            ${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Swarm
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ci_key
+          chmod 600 ~/.ssh/ci_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST_A }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Backend
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
+            "docker service update --image ghcr.io/career-hy/backend:dev --update-order stop-first $BACKEND_SERVICE || docker service create --name $BACKEND_SERVICE --publish 5001:5001 ghcr.io/career-hy/backend:dev"
+
+      - name: Deploy LLM-Service
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
+            "docker service update --image ghcr.io/career-hy/llm-service:dev --update-order stop-first $LLM_SERVICE || docker service create --name $LLM_SERVICE ghcr.io/career-hy/llm-service:dev"
+
+      - name: Deploy Ingestion
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
+            "docker service update --image ghcr.io/career-hy/ingestion:dev --update-order stop-first $INGEST_SERVICE || docker service create --name $INGEST_SERVICE ghcr.io/career-hy/ingestion:dev"
+
+      - name: Check Swarm status
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "docker service ls && docker node ls"
