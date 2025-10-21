@@ -471,7 +471,7 @@ class DataProcessor:
                 self.s3_loader.cleanup_temp_files(pdf_paths) 
     def find_s3_files_by_rec_idx(self, rec_idx: str) -> Dict[str, str]:
         """
-        S3에서 특정 rec_idx의 PDF/JSON 파일을 찾습니다 (마감일 기준 구조 지원)
+        S3에서 특정 rec_idx의 PDF/JSON 파일을 찾습니다 (날짜별 디렉토리 구조)
 
         Args:
             rec_idx (str): 채용공고 ID
@@ -480,12 +480,12 @@ class DataProcessor:
             Dict[str, str]: {"pdf_key": "...", "json_key": "..."} 또는 빈 딕셔너리
         """
         try:
-            # S3에서 모든 객체 검색 (by-deadline 구조)
-            base_prefix = "datasets/by-deadline/"
+            # S3에서 모든 객체 검색 (날짜별 구조: datasets/{YYYY-MM-DD}/)
+            base_prefix = "datasets/"
 
             logger.info(f"🔍 rec_idx {rec_idx} 파일 검색 중...")
 
-            # S3 전체 스캔 (마감일 폴더 전체)
+            # S3 전체 스캔 (datasets/ 하위 전체)
             all_objects = self.s3_loader.list_s3_objects(base_prefix)
 
             pdf_key = None
@@ -493,7 +493,8 @@ class DataProcessor:
 
             # PDF/JSON 파일 찾기
             for obj_key in all_objects:
-                # "datasets/by-deadline/2025-11-06/pdf/52082420.pdf"
+                # "datasets/2025-10-21/pdf/52099626.pdf"
+                # "datasets/2025-10-21/json/52099626.json"
                 if f"/{rec_idx}.pdf" in obj_key:
                     pdf_key = obj_key
                 elif f"/{rec_idx}.json" in obj_key:

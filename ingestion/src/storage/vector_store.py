@@ -175,18 +175,14 @@ def query_chroma(
     # 쿼리를 임베딩
     query_embedding = embedder.embed([query])[0]
 
-    # 🆕 마감일 필터 생성
+    # 🆕 마감일 필터 생성 (임시 비활성화 - ChromaDB $gte 연산자 이슈)
     where_filter = None
     if filter_expired:
         today = datetime.now().strftime('%Y-%m-%d')
-        where_filter = {
-            "$or": [
-                {"deadline": {"$gte": today}},  # 마감일이 오늘 이후
-                {"deadline": "상시채용"},         # 상시채용
-                {"deadline": "미정"}              # 마감일 미정
-            ]
-        }
-        logger.info(f"🔍 마감일 필터 적용: {today} 이후 공고만 검색")
+        # ChromaDB는 $gte 같은 비교 연산자를 지원하지 않을 수 있음
+        # 필터링은 검색 후 Python에서 처리하는 방식으로 변경 필요
+        logger.info(f"⚠️ 마감일 필터링 임시 비활성화 (전체 검색 후 필터링 예정)")
+        where_filter = None
 
     # 검색 (메타데이터와 거리 점수 포함, where 필터 적용)
     results = collection.query(

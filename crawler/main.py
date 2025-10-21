@@ -8,6 +8,7 @@
 5. 오늘의 latest 업데이트
 6. Ingestion API 자동 호출
 """
+
 import sys
 import os
 import requests
@@ -46,9 +47,7 @@ def call_ingestion_api(rec_idx_list: list) -> bool:
 
     try:
         response = requests.post(
-            endpoint,
-            json={"rec_idx_list": rec_idx_list},
-            timeout=300  # 5분 타임아웃
+            endpoint, json={"rec_idx_list": rec_idx_list}, timeout=300  # 5분 타임아웃
         )
 
         if response.status_code == 200:
@@ -79,13 +78,15 @@ def call_ingestion_api(rec_idx_list: list) -> bool:
 def main():
     """크롤러 메인 실행 함수 (최신순 정렬 + latest_rec_idx 비교 방식)"""
 
-    print("""
+    print(
+        """
     ╔══════════════════════════════════════════════════════════╗
     ║                                                          ║
     ║        Career-Hi RAG 크롤러 (최신순 최적화)             ║
     ║                                                          ║
     ╚══════════════════════════════════════════════════════════╝
-    """)
+    """
+    )
 
     print(f"🔧 실행 모드: {CRAWL_MODE}")
     print(f"🔄 정렬: 최신순 (등록일 기준)")
@@ -121,12 +122,12 @@ def main():
         print(f"🆕 첫 실행입니다. 전체 크롤링을 진행합니다.")
 
     # 3. 크롤링 설정
-    if CRAWL_MODE == 'test':
+    if CRAWL_MODE == "test":
         max_pages = 1
         max_posts_per_page = 5
         print("\n📝 테스트 모드: 1페이지, 5개 공고만 수집")
     else:  # daily
-        max_pages = 10
+        max_pages = 50
         max_posts_per_page = 100
         print("\n📅 일일 모드: 최대 10페이지, 100개 공고 수집")
 
@@ -141,10 +142,10 @@ def main():
     results = crawler.crawl_with_latest_stop(
         max_pages=max_pages,
         max_posts_per_page=max_posts_per_page,
-        previous_latest_rec_idx=previous_latest
+        previous_latest_rec_idx=previous_latest,
     )
 
-    successful_results = [r for r in results if r.get('status') == 'success']
+    successful_results = [r for r in results if r.get("status") == "success"]
     stopped_at_latest = crawler.stopped_at_latest  # 크롤러에서 설정된 플래그
 
     print(f"\n📊 크롤링 결과:")
@@ -157,7 +158,7 @@ def main():
     today_latest = None
     if successful_results:
         # 첫 번째 결과가 오늘의 최신
-        today_latest = successful_results[0]['rec_idx']
+        today_latest = successful_results[0]["rec_idx"]
         print(f"\n🎯 오늘의 latest_rec_idx: {today_latest}")
 
     # 6. S3 업로드 (메모리에서 직접)
@@ -172,9 +173,9 @@ def main():
         upload_fail_count = 0
 
         for result in successful_results:
-            rec_idx = result['rec_idx']
-            pdf_data = result['pdf_data']
-            metadata = result['metadata']
+            rec_idx = result["rec_idx"]
+            pdf_data = result["pdf_data"]
+            metadata = result["metadata"]
 
             print(f"📤 {rec_idx} 업로드 중...")
 
@@ -190,7 +191,9 @@ def main():
                 upload_fail_count += 1
                 print(f"   ❌ 실패")
 
-        print(f"\n📤 S3 업로드 완료: {upload_success_count}개 성공, {upload_fail_count}개 실패")
+        print(
+            f"\n📤 S3 업로드 완료: {upload_success_count}개 성공, {upload_fail_count}개 실패"
+        )
     else:
         print("\n⚠️  신규 수집된 공고가 없어 S3 업로드를 건너뜁니다.")
 
@@ -241,9 +244,8 @@ def main():
         print(f"   - 저장됨: {today_latest}")
 
     overall_success = (
-        (not successful_results or upload_success_count > 0) and
-        ingestion_success
-    )
+        not successful_results or upload_success_count > 0
+    ) and ingestion_success
 
     if overall_success:
         print("\n✅ 크롤링 작업 완료!")

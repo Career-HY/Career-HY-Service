@@ -42,17 +42,8 @@ print(f"📅 크롤링 날짜: {CRAWL_DATE}")
 # 사람인 크롤링 URL 파라미터
 SARAMIN_BASE_URL = "https://www.saramin.co.kr/zf_user/jobs/public/list"
 SARAMIN_PARAMS = {
-    "exp_cd": "1",  # 신입 (경력 1년 미만)
-    "edu_min": "1",  # 최소 학력: 학력무관
-    "edu_max": "10",  # 최대 학력: 대학원졸
-    "company_cd": "0,1,2,3,4,5,6,7,9,10",  # 모든 기업 규모
-    "panel_type": "domestic",
-    "search_optional_item": "y",
-    "search_done": "y",
-    "panel_count": "y",
-    "preview": "y",
-    "isAjaxRequest": "y",
-    "sort": "ud",  # 최신순 정렬 (update date)
+    # 파라미터 없음 (디폴트가 최신순 정렬)
+    # 모든 채용공고 크롤링 후 LLM/Ingestion 단계에서 필터링
 }
 
 # 로컬 임시 저장 경로

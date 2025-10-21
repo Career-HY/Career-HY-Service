@@ -69,7 +69,15 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
         # 3. 검색 결과 포맷팅
         job_postings = []
         if results and results.get("documents"):
-            for doc, metadata in zip(results["documents"][0], results["metadatas"][0]):
+            documents = results["documents"][0]
+            metadatas = results["metadatas"][0]
+            distances = results.get("distances", [[]])[0]
+
+            for idx, (doc, metadata) in enumerate(zip(documents, metadatas)):
+                # 유사도 점수 계산
+                distance = distances[idx] if idx < len(distances) else None
+                similarity = round(1.0 - distance, 4) if distance is not None else None
+
                 job_posting = JobPosting(
                     rec_idx=metadata.get("rec_idx"),
                     title=metadata.get("post_title", "제목 없음"),
@@ -78,6 +86,7 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
+                    similarity_score=similarity,  # 🆕 유사도 점수 추가
                 )
                 job_postings.append(job_posting)
 
@@ -159,9 +168,14 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
         if results and results.get("documents"):
             documents = results["documents"][0] if results["documents"] else []
             metadatas = results["metadatas"][0] if results["metadatas"] else []
+            distances = results["distances"][0] if results.get("distances") else []
             total_found = len(documents)
-            
-            for doc, metadata in zip(documents, metadatas):
+
+            for idx, (doc, metadata) in enumerate(zip(documents, metadatas)):
+                # 유사도 점수 계산 (distance가 작을수록 유사 → similarity는 높게)
+                distance = distances[idx] if idx < len(distances) else None
+                similarity = round(1.0 - distance, 4) if distance is not None else None
+
                 job_posting = JobPosting(
                     rec_idx=metadata.get("rec_idx"),
                     title=metadata.get("post_title", "제목 없음"),
@@ -170,6 +184,7 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
+                    similarity_score=similarity,  # 🆕 유사도 점수 추가
                 )
                 job_postings.append(job_posting)
 

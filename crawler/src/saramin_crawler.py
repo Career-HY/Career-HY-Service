@@ -176,17 +176,73 @@ class SaraminCrawler:
         """
         url = self.build_list_url(page)
         logger.info(f"📄 페이지 {page} 접속 중...")
+        logger.info(f"🔗 URL: {url}")
 
         try:
             self.driver.get(url)
             time.sleep(random.uniform(3, 5))
             logger.info(f"✅ 페이지 {page} 로드 완료")
 
+            # 🆕 디버깅: 페이지 소스 일부 확인
+            page_source = self.driver.page_source
+            logger.info(f"📄 페이지 소스 길이: {len(page_source)} 문자")
+
+            # 🆕 디버깅: 스크린샷 저장 (첫 페이지만)
+            if page == 1:
+                try:
+                    screenshot_path = f"/app/output/debug_page_{page}.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    logger.info(f"📸 스크린샷 저장: {screenshot_path}")
+                except Exception as e:
+                    logger.warning(f"⚠️  스크린샷 저장 실패: {e}")
+
             # 채용공고 링크 추출
             elems = self.driver.find_elements(By.CSS_SELECTOR, "a[id^='rec_link_']")
 
             if not elems:
                 logger.warning(f"⚠️  페이지 {page}에서 채용공고 링크를 찾지 못했습니다.")
+
+                # 🆕 디버깅: 페이지 HTML 일부 저장
+                logger.info("🔍 페이지 HTML 분석 중...")
+                if page == 1:
+                    try:
+                        html_path = f"/app/output/debug_page_{page}.html"
+                        with open(html_path, 'w', encoding='utf-8') as f:
+                            f.write(page_source[:100000])  # 처음 100KB만
+                        logger.info(f"📄 HTML 일부 저장: {html_path}")
+                    except Exception as e:
+                        logger.warning(f"⚠️  HTML 저장 실패: {e}")
+
+                # 🆕 디버깅: 다른 selector 시도
+                logger.info("🔍 대체 selector 시도 중...")
+
+                # 1. 클래스명으로 찾기
+                elems_by_class = self.driver.find_elements(By.CSS_SELECTOR, ".item_recruit")
+                logger.info(f"   - .item_recruit: {len(elems_by_class)}개 발견")
+
+                # 2. 다른 클래스 시도
+                elems_by_class2 = self.driver.find_elements(By.CSS_SELECTOR, ".list_item")
+                logger.info(f"   - .list_item: {len(elems_by_class2)}개 발견")
+
+                # 3. 링크만 찾기 (TypeError 수정)
+                all_links = self.driver.find_elements(By.TAG_NAME, "a")
+                rec_links = []
+                for a in all_links:
+                    href = a.get_attribute('href')
+                    if href and 'recruit' in href:
+                        rec_links.append(a)
+                logger.info(f"   - 'recruit' 포함 링크: {len(rec_links)}개 발견")
+
+                if rec_links:
+                    first_href = rec_links[0].get_attribute('href')
+                    first_id = rec_links[0].get_attribute('id')
+                    logger.info(f"   - 첫 번째 링크 예시: {first_href}")
+                    logger.info(f"   - 첫 번째 링크 ID: {first_id}")
+
+                # 4. 페이지 정보 확인
+                page_title = self.driver.title
+                logger.info(f"   - 페이지 타이틀: {page_title}")
+
                 return []
 
             posts = []
@@ -200,6 +256,8 @@ class SaraminCrawler:
 
         except Exception as e:
             logger.error(f"❌ 페이지 {page} 접속 실패: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return []
 
     def crawl_job_detail(self, rec_idx: str, detail_url: str) -> Optional[Dict]:
