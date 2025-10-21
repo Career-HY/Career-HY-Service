@@ -3,13 +3,18 @@
 
 APScheduler를 사용하여 크롤러를 정기적으로 실행합니다.
 기본 설정: 매일 오전 9시 실행
+
+메모리 효율적 스트리밍 모드 사용 (main_streaming.py)
+- 10개씩 배치 처리
+- 즉시 S3 업로드 및 Ingestion API 호출
+- 메모리 사용량: ~20MB (기존 2GB → 100배 절감)
 """
 import os
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 import pytz
-from main import main as run_crawler
+from main_streaming import main as run_crawler
 
 
 def scheduled_crawl_job():

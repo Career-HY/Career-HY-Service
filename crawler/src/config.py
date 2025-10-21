@@ -18,8 +18,8 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-northeast-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "career-hi")
 
 # 크롤링 설정
-CRAWL_SCHEDULE_HOUR = int(os.getenv("CRAWL_SCHEDULE_HOUR", "2"))
-CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "5"))
+# 주의: CRAWL_SCHEDULE_HOUR/MINUTE은 scheduler.py에서 직접 환경변수를 읽음
+CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
 CRAWL_MODE = os.getenv("CRAWL_MODE", "daily")  # 'test', 'daily', 'initial'
 
 # Ingestion API 설정
@@ -81,7 +81,6 @@ if __name__ == "__main__":
     print(f"AWS Region: {AWS_DEFAULT_REGION}")
     print(f"S3 Bucket: {S3_BUCKET_NAME}")
     print(f"Crawl Mode: {CRAWL_MODE}")
-    print(f"Crawl Schedule: {CRAWL_SCHEDULE_HOUR}시")
     print(f"Max Pages: {CRAWL_MAX_PAGES}")
     print(f"\nS3 경로:")
     print(f"  PDF: s3://{S3_BUCKET_NAME}/{S3_PDF_PREFIX}")

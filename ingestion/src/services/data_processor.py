@@ -519,6 +519,11 @@ class DataProcessor:
         """
         특정 rec_idx 리스트를 S3에서 찾아 처리합니다 (크롤러 연동용)
 
+        메모리 효율적 처리:
+        - 50개씩 배치 처리
+        - 각 배치 완료 후 메모리 해제
+        - 임시 파일 즉시 삭제
+
         Args:
             rec_idx_list (List[str]): 처리할 rec_idx 리스트
             force_update (bool): True면 중복 시 덮어쓰기, False면 스킵
@@ -526,11 +531,11 @@ class DataProcessor:
         Returns:
             Dict[str, Any]: 처리 결과 요약
         """
-        pdf_paths = []
-        temp_dir = None
+        import tempfile
+        import gc
 
         try:
-            logger.info(f"🚀 rec_idx 리스트 처리 시작 ({len(rec_idx_list)}개)")
+            logger.info(f"🚀 rec_idx 리스트 처리 시작 ({len(rec_idx_list)}개) - 배치 처리 모드")
 
             if not rec_idx_list:
                 return {
@@ -541,184 +546,211 @@ class DataProcessor:
                     "skipped": 0
                 }
 
-            # 임시 디렉토리 생성
-            import tempfile
-            temp_dir = Path(tempfile.mkdtemp(prefix="career_hi_rec_idx_"))
+            # 전체 통계
+            total_added = 0
+            total_updated = 0
+            total_skipped = 0
+            total_processed = 0
 
-            downloaded_pdf_paths = []
-            json_data_list = []
+            # 배치 크기 설정 (50개씩 처리)
+            BATCH_SIZE = 50
+            total_batches = (len(rec_idx_list) + BATCH_SIZE - 1) // BATCH_SIZE
 
-            # 각 rec_idx에 대해 S3 파일 검색 및 다운로드
-            for rec_idx in rec_idx_list:
-                logger.info(f"📄 rec_idx {rec_idx} 처리 중...")
+            logger.info(f"📦 총 {total_batches}개 배치로 처리 예정 (배치 크기: {BATCH_SIZE})")
 
-                # S3에서 PDF/JSON 파일 찾기
-                files = self.find_s3_files_by_rec_idx(rec_idx)
+            # rec_idx_list를 배치로 분할 처리
+            for batch_idx in range(0, len(rec_idx_list), BATCH_SIZE):
+                batch_rec_ids = rec_idx_list[batch_idx:batch_idx + BATCH_SIZE]
+                batch_num = (batch_idx // BATCH_SIZE) + 1
 
-                if not files.get('pdf_key'):
-                    logger.warning(f"⚠️  rec_idx {rec_idx}: PDF 없음, 스킵")
-                    continue
+                logger.info(f"\n{'='*60}")
+                logger.info(f"📦 배치 {batch_num}/{total_batches} 시작 ({len(batch_rec_ids)}개)")
+                logger.info(f"{'='*60}")
 
-                # PDF 다운로드
-                pdf_key = files['pdf_key']
-                filename = Path(pdf_key).name
-                local_pdf_path = temp_dir / filename
+                # 배치별 임시 디렉토리 생성
+                temp_dir = Path(tempfile.mkdtemp(prefix=f"career_hi_batch{batch_num}_"))
+                pdf_paths = []
 
-                self.s3_loader.s3_client.download_file(
-                    self.s3_loader.bucket_name,
-                    pdf_key,
-                    str(local_pdf_path)
-                )
-                downloaded_pdf_paths.append(local_pdf_path)
-                logger.info(f"✅ PDF 다운로드: {filename}")
-
-                # JSON 다운로드 (있으면)
-                if files.get('json_key'):
-                    json_key = files['json_key']
-                    response = self.s3_loader.s3_client.get_object(
-                        Bucket=self.s3_loader.bucket_name,
-                        Key=json_key
-                    )
-                    content = response['Body'].read().decode('utf-8')
-                    import json as json_module
-                    json_data = json_module.loads(content)
-
-                    if isinstance(json_data, list):
-                        json_data_list.extend(json_data)
-                    else:
-                        json_data_list.append(json_data)
-
-                    logger.info(f"✅ JSON 로드: {Path(json_key).name}")
-
-            if not downloaded_pdf_paths:
-                logger.warning("⚠️  다운로드된 PDF가 없습니다")
-                return {
-                    "success": False,
-                    "error": "No PDFs found for given rec_idx_list",
-                    "added": 0,
-                    "updated": 0,
-                    "skipped": 0
-                }
-
-            pdf_paths = downloaded_pdf_paths
-
-            # JSON 데이터 인덱싱
-            json_dict = {}
-            for item in json_data_list:
-                if isinstance(item, dict) and 'rec_idx' in item:
-                    json_dict[item['rec_idx']] = item
-
-            logger.info(f"📋 {len(json_dict)}개의 JSON 레코드 인덱싱 완료")
-
-            # PDF 텍스트 추출 및 JSON 메타데이터 매칭
-            logger.info("🔍 PDF 텍스트 추출 및 메타데이터 매칭 중...")
-            pdf_documents = []
-            pdf_metadatas = []
-            pdf_ids = []
-
-            for pdf_path in pdf_paths:
                 try:
-                    raw_text = extract_text_PyMuPDF(pdf_path)
-                    clean_text_result = clean_text(raw_text)
+                    downloaded_pdf_paths = []
+                    json_data_list = []
 
-                    if clean_text_result.strip():
-                        pdf_filename = pdf_path.stem
-                        rec_idx = pdf_filename.split('_')[-1] if '_' in pdf_filename else pdf_filename
+                    # 배치 내 각 rec_idx 처리
+                    for rec_idx in batch_rec_ids:
+                        try:
+                            # S3에서 PDF/JSON 파일 찾기
+                            files = self.find_s3_files_by_rec_idx(rec_idx)
 
-                        json_metadata = json_dict.get(rec_idx)
+                            if not files.get('pdf_key'):
+                                logger.warning(f"⚠️  rec_idx {rec_idx}: PDF 없음, 스킵")
+                                continue
 
-                        metadata = {
-                            "source": "pdf",
-                            "filename": pdf_path.name,
-                            "document_type": "recruitment_pdf_with_json" if json_metadata else "recruitment_pdf_only",
-                            "rec_idx": rec_idx
-                        }
+                            # PDF 다운로드
+                            pdf_key = files['pdf_key']
+                            filename = Path(pdf_key).name
+                            local_pdf_path = temp_dir / filename
 
-                        if json_metadata:
-                            for key, value in json_metadata.items():
-                                if isinstance(value, (str, int, float, bool)):
-                                    metadata[key] = str(value)
-                            logger.info(f"✅ 매칭 완료: {rec_idx} - {json_metadata.get('post_title', 'Unknown')}")
-                        else:
-                            metadata.update({
-                                "post_title": "제목 없음",
-                                "deadline": "미정",
-                                "detail_url": ""
-                            })
-                            logger.warning(f"⚠️  JSON 없음: {rec_idx}")
+                            self.s3_loader.s3_client.download_file(
+                                self.s3_loader.bucket_name,
+                                pdf_key,
+                                str(local_pdf_path)
+                            )
+                            downloaded_pdf_paths.append(local_pdf_path)
+                            logger.info(f"✅ PDF 다운로드: {filename}")
 
-                        pdf_documents.append(clean_text_result)
-                        pdf_metadatas.append(metadata)
-                        pdf_ids.append(rec_idx)
+                            # JSON 다운로드 (있으면)
+                            if files.get('json_key'):
+                                json_key = files['json_key']
+                                response = self.s3_loader.s3_client.get_object(
+                                    Bucket=self.s3_loader.bucket_name,
+                                    Key=json_key
+                                )
+                                content = response['Body'].read().decode('utf-8')
+                                import json as json_module
+                                json_data = json_module.loads(content)
 
-                except Exception as e:
-                    logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
-                    continue
+                                if isinstance(json_data, list):
+                                    json_data_list.extend(json_data)
+                                else:
+                                    json_data_list.append(json_data)
 
-            # 임베딩 생성 및 Upsert
-            if pdf_documents:
-                logger.info(f"💾 {len(pdf_documents)}개 문서 처리 중...")
+                                logger.info(f"✅ JSON 로드: {Path(json_key).name}")
 
-                # 임베딩 생성
-                logger.info("🔮 임베딩 생성 중...")
-                batch_size = 50
-                all_embeddings = []
+                        except Exception as e:
+                            logger.error(f"❌ rec_idx {rec_idx} 처리 실패: {e}")
+                            continue
 
-                for i in range(0, len(pdf_documents), batch_size):
-                    batch_docs = pdf_documents[i:i + batch_size]
-                    batch_num = (i // batch_size) + 1
-                    total_batches = (len(pdf_documents) + batch_size - 1) // batch_size
-
-                    logger.info(f"📊 배치 {batch_num}/{total_batches} 처리 중... ({len(batch_docs)}개 문서)")
-
-                    try:
-                        batch_embeddings = self.embedder.embed(batch_docs)
-                        all_embeddings.extend(batch_embeddings)
-                        logger.info(f"✅ 배치 {batch_num}/{total_batches} 완료")
-                    except Exception as e:
-                        logger.error(f"❌ 배치 {batch_num} 처리 실패: {e}")
+                    if not downloaded_pdf_paths:
+                        logger.warning(f"⚠️  배치 {batch_num}: 다운로드된 PDF 없음")
                         continue
 
-                if len(all_embeddings) != len(pdf_documents):
-                    logger.warning(f"⚠️  임베딩 개수 불일치: 문서 {len(pdf_documents)}개, 임베딩 {len(all_embeddings)}개")
-                    valid_count = len(all_embeddings)
-                    pdf_documents = pdf_documents[:valid_count]
-                    pdf_metadatas = pdf_metadatas[:valid_count]
-                    pdf_ids = pdf_ids[:valid_count]
+                    pdf_paths = downloaded_pdf_paths
 
-                # Upsert to ChromaDB
-                logger.info(f"💾 ChromaDB Upsert 중 (force_update={force_update})...")
-                upsert_result = upsert_to_chroma(
-                    texts=pdf_documents,
-                    embeddings=all_embeddings,
-                    ids=pdf_ids,
-                    metadatas=pdf_metadatas,
-                    persist_dir=self.persist_dir,
-                    force_update=force_update
-                )
+                    # JSON 데이터 인덱싱
+                    json_dict = {}
+                    for item in json_data_list:
+                        if isinstance(item, dict) and 'rec_idx' in item:
+                            json_dict[item['rec_idx']] = item
 
-                result = {
-                    "success": True,
-                    "rec_idx_list": rec_idx_list,
-                    "found_pdfs": len(downloaded_pdf_paths),
-                    "added": upsert_result["added"],
-                    "updated": upsert_result["updated"],
-                    "skipped": upsert_result["skipped"],
-                    "total_processed": len(pdf_documents)
-                }
+                    logger.info(f"📋 {len(json_dict)}개의 JSON 레코드 인덱싱 완료")
 
-                logger.info(f"🎉 rec_idx 리스트 처리 완료: {result}")
-                return result
+                    # PDF 텍스트 추출 및 메타데이터 매칭
+                    logger.info("🔍 PDF 텍스트 추출 및 메타데이터 매칭 중...")
+                    pdf_documents = []
+                    pdf_metadatas = []
+                    pdf_ids = []
 
-            else:
-                logger.warning("⚠️  처리할 문서가 없습니다.")
-                return {
-                    "success": False,
-                    "error": "No documents to process",
-                    "added": 0,
-                    "updated": 0,
-                    "skipped": 0
-                }
+                    for pdf_path in pdf_paths:
+                        try:
+                            raw_text = extract_text_PyMuPDF(pdf_path)
+                            clean_text_result = clean_text(raw_text)
+
+                            if clean_text_result.strip():
+                                pdf_filename = pdf_path.stem
+                                rec_idx = pdf_filename.split('_')[-1] if '_' in pdf_filename else pdf_filename
+
+                                json_metadata = json_dict.get(rec_idx)
+
+                                metadata = {
+                                    "source": "pdf",
+                                    "filename": pdf_path.name,
+                                    "document_type": "recruitment_pdf_with_json" if json_metadata else "recruitment_pdf_only",
+                                    "rec_idx": rec_idx
+                                }
+
+                                if json_metadata:
+                                    for key, value in json_metadata.items():
+                                        if isinstance(value, (str, int, float, bool)):
+                                            metadata[key] = str(value)
+                                    logger.info(f"✅ 매칭: {rec_idx} - {json_metadata.get('post_title', 'Unknown')[:30]}...")
+                                else:
+                                    metadata.update({
+                                        "post_title": "제목 없음",
+                                        "deadline": "미정",
+                                        "detail_url": ""
+                                    })
+
+                                pdf_documents.append(clean_text_result)
+                                pdf_metadatas.append(metadata)
+                                pdf_ids.append(rec_idx)
+
+                        except Exception as e:
+                            logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
+                            continue
+
+                    # 임베딩 생성 및 Upsert (배치 내에서는 한번에 처리)
+                    if pdf_documents:
+                        logger.info(f"🔮 임베딩 생성 중... ({len(pdf_documents)}개 문서)")
+
+                        try:
+                            # 임베딩 생성
+                            batch_embeddings = self.embedder.embed(pdf_documents)
+
+                            # ChromaDB Upsert
+                            logger.info(f"💾 ChromaDB Upsert 중...")
+                            upsert_result = upsert_to_chroma(
+                                texts=pdf_documents,
+                                embeddings=batch_embeddings,
+                                ids=pdf_ids,
+                                metadatas=pdf_metadatas,
+                                persist_dir=self.persist_dir,
+                                force_update=force_update
+                            )
+
+                            # 통계 누적
+                            total_added += upsert_result["added"]
+                            total_updated += upsert_result["updated"]
+                            total_skipped += upsert_result["skipped"]
+                            total_processed += len(pdf_documents)
+
+                            logger.info(f"✅ 배치 {batch_num}/{total_batches} 완료: "
+                                      f"추가 {upsert_result['added']}, "
+                                      f"업데이트 {upsert_result['updated']}, "
+                                      f"스킵 {upsert_result['skipped']}")
+
+                        except Exception as e:
+                            logger.error(f"❌ 배치 {batch_num} 임베딩/Upsert 실패: {e}")
+                            continue
+
+                    else:
+                        logger.warning(f"⚠️  배치 {batch_num}: 처리할 문서 없음")
+
+                finally:
+                    # 배치별 메모리 해제
+                    logger.info(f"🧹 배치 {batch_num} 메모리 해제 중...")
+
+                    # 임시 파일 정리
+                    if pdf_paths:
+                        self.s3_loader.cleanup_temp_files(pdf_paths)
+
+                    # 변수 명시적 삭제
+                    del pdf_paths, downloaded_pdf_paths, json_data_list, json_dict
+                    if 'pdf_documents' in locals():
+                        del pdf_documents, pdf_metadatas, pdf_ids
+                    if 'batch_embeddings' in locals():
+                        del batch_embeddings
+
+                    # 가비지 컬렉션 강제 실행
+                    gc.collect()
+
+                    logger.info(f"✅ 배치 {batch_num} 메모리 해제 완료")
+
+            # 최종 결과
+            result = {
+                "success": True,
+                "total_rec_idx": len(rec_idx_list),
+                "batches_processed": total_batches,
+                "added": total_added,
+                "updated": total_updated,
+                "skipped": total_skipped,
+                "total_processed": total_processed
+            }
+
+            logger.info(f"\n{'='*60}")
+            logger.info(f"🎉 전체 처리 완료: {result}")
+            logger.info(f"{'='*60}\n")
+
+            return result
 
         except Exception as e:
             logger.error(f"❌ rec_idx 리스트 처리 중 오류 발생: {e}")
@@ -731,8 +763,3 @@ class DataProcessor:
                 "updated": 0,
                 "skipped": 0
             }
-
-        finally:
-            # 임시 파일 정리
-            if pdf_paths:
-                self.s3_loader.cleanup_temp_files(pdf_paths)
