@@ -145,16 +145,17 @@ def upsert_to_chroma(
 
 # ✅ 문서 검색 함수
 def query_chroma(
-    query: str, embedder, persist_dir: str, top_k: int = 10
+    query: str, embedder, persist_dir: str, top_k: int = 10, filter_expired: bool = True
 ) -> Dict[str, Any]:
     """
-    쿼리 임베딩 후 Chroma에서 Top-K 문서 검색
+    쿼리 임베딩 후 Chroma에서 Top-K 문서 검색 (마감일 필터링 지원)
 
     Args:
         query (str): 사용자 쿼리
         embedder: 임베딩 생성기 (embed(text: List[str]) 지원)
         persist_dir (str): Chroma 저장 경로
         top_k (int): 검색할 문서 수 (기본값: 10)
+        filter_expired (bool): True면 마감 지난 공고 제외, False면 모두 검색 (기본값: True)
 
     Returns:
         dict: {
@@ -163,16 +164,35 @@ def query_chroma(
             'distances': List[List[float]]  # 유사도 점수 (낮을수록 유사)
         }
     """
+    from datetime import datetime
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     client = chromadb.PersistentClient(path=persist_dir)
     collection = client.get_or_create_collection(name="job-postings")
 
     # 쿼리를 임베딩
     query_embedding = embedder.embed([query])[0]
 
-    # 검색 (메타데이터와 거리 점수 포함)
+    # 🆕 마감일 필터 생성
+    where_filter = None
+    if filter_expired:
+        today = datetime.now().strftime('%Y-%m-%d')
+        where_filter = {
+            "$or": [
+                {"deadline": {"$gte": today}},  # 마감일이 오늘 이후
+                {"deadline": "상시채용"},         # 상시채용
+                {"deadline": "미정"}              # 마감일 미정
+            ]
+        }
+        logger.info(f"🔍 마감일 필터 적용: {today} 이후 공고만 검색")
+
+    # 검색 (메타데이터와 거리 점수 포함, where 필터 적용)
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=top_k,
+        where=where_filter,  # 🆕 필터 추가
         include=["documents", "metadatas", "distances"],
     )
 

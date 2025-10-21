@@ -57,12 +57,13 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
             query=request.query,  
         )
 
-        # 2. ChromaDB에서 유사 문서 검색
+        # 2. ChromaDB에서 유사 문서 검색 (마감일 필터링 적용)
         results = query_chroma(
             query=profile_query,
             embedder=embedder,
             persist_dir=PERSIST_DIR,
             top_k=10,  # 상위 10개 문서만 반환
+            filter_expired=request.filter_expired,  # 🆕 마감일 필터링 옵션
         )
 
         # 3. 검색 결과 포맷팅
@@ -139,12 +140,13 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
         # 검색 시간 측정 시작
         start_time = time.time()
         
-        # ChromaDB에서 벡터 검색
+        # ChromaDB에서 벡터 검색 (마감일 필터링 적용)
         results = query_chroma(
             query=request.query,
             embedder=embedder,
             persist_dir=PERSIST_DIR,
             top_k=request.top_k,
+            filter_expired=True,  # 🆕 마감일 필터링 기본 적용
         )
         
         # 검색 시간 계산
