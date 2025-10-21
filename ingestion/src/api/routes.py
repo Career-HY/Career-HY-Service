@@ -1,7 +1,15 @@
 import os
 import time
 from fastapi import APIRouter, HTTPException
-from .models import RetrievalRequest, RetrievalResponse, JobPosting, VectorSearchRequest, VectorSearchResponse
+from .models import (
+    RetrievalRequest,
+    RetrievalResponse,
+    JobPosting,
+    VectorSearchRequest,
+    VectorSearchResponse,
+    IncrementalDataRequest,
+    IncrementalDataResponse
+)
 from services import OpenAITextEmbedder, DataProcessor, ProfileQueryBuilder
 from storage import query_chroma
 from util.logging import log_api_call
@@ -212,3 +220,65 @@ async def get_post(rec_idx: str):
     meta = data["metadatas"][0]
     excerpt = data["documents"][0][:500]
     return {"rec_idx": rec_idx, "metadata": meta, "excerpt": excerpt}
+
+
+@router.post("/process-new-data", response_model=IncrementalDataResponse)
+@log_api_call
+async def process_new_data(request: IncrementalDataRequest) -> IncrementalDataResponse:
+    """
+    S3의 특정 경로 또는 rec_idx 리스트에서 새로운 데이터를 로드하고 증분 업데이트
+
+    Parameters:
+    - request: IncrementalDataRequest
+        - s3_prefix: S3 경로 (예: "datasets/test/" 또는 "datasets/daily/2025-01-20/")
+        - rec_idx_list: 특정 rec_idx 리스트 (크롤러에서 전달, 예: ["52082420", "52082415"])
+        - force_update: True면 중복 시 덮어쓰기, False면 스킵 (기본값: False)
+
+    Note: s3_prefix와 rec_idx_list 중 하나만 제공하면 됩니다.
+
+    Returns:
+    - IncrementalDataResponse - 처리 결과 및 통계
+    """
+    try:
+        # 요청 검증
+        if not request.s3_prefix and not request.rec_idx_list:
+            raise HTTPException(
+                status_code=400,
+                detail="s3_prefix 또는 rec_idx_list 중 하나는 필수입니다"
+            )
+
+        # rec_idx_list가 제공된 경우 (크롤러 연동)
+        if request.rec_idx_list:
+            result = data_processor.process_by_rec_idx_list(
+                rec_idx_list=request.rec_idx_list,
+                force_update=request.force_update
+            )
+        # s3_prefix가 제공된 경우 (기존 방식)
+        else:
+            result = data_processor.process_incremental_data(
+                s3_prefix=request.s3_prefix,
+                force_update=request.force_update
+            )
+
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=500,
+                detail=f"증분 데이터 처리 실패: {result.get('error', 'Unknown error')}"
+            )
+
+        return IncrementalDataResponse(
+            success=True,
+            s3_prefix=result.get("s3_prefix"),
+            added=result.get("added", 0),
+            updated=result.get("updated", 0),
+            skipped=result.get("skipped", 0),
+            total_processed=result.get("total_processed", 0)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"증분 데이터 처리 중 오류 발생: {str(e)}"
+        )
