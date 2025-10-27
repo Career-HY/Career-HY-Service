@@ -26,8 +26,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 소스 코드 복사
 COPY . .
 
-# output 디렉토리 생성
-RUN mkdir -p /app/output
-
 # 기본 명령어 (docker-compose에서 override 가능)
 CMD ["python", "scheduler.py"]

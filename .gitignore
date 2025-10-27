@@ -10,6 +10,9 @@ ingestion/data/
 # 초기 데이터셋
 #ingestion/dataset/
 
+# 크롤러 출력 디렉토리 (디버그 파일 등)
+crawler/output/
+
 # 로그 파일
 *.log
 

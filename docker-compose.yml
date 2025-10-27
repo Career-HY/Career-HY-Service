@@ -40,8 +40,6 @@ services:
       - ./.env
     environment:
       - INGESTION_SERVICE_URL=http://ingestion:5002
-    volumes:
-      - ./crawler/output:/app/output
     depends_on:
       - ingestion
     command: python scheduler.py

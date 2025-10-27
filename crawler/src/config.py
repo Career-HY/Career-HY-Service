@@ -46,15 +46,6 @@ SARAMIN_PARAMS = {
     # 모든 채용공고 크롤링 후 LLM/Ingestion 단계에서 필터링
 }
 
-# 로컬 임시 저장 경로
-LOCAL_OUTPUT_DIR = Path(__file__).parent.parent / "output"
-LOCAL_PDF_DIR = LOCAL_OUTPUT_DIR / "pdf"
-LOCAL_JSON_DIR = LOCAL_OUTPUT_DIR / "metadata"
-
-# 디렉토리 생성
-LOCAL_PDF_DIR.mkdir(parents=True, exist_ok=True)
-LOCAL_JSON_DIR.mkdir(parents=True, exist_ok=True)
-
 
 def validate_config():
     """필수 환경변수 검증"""
@@ -85,7 +76,5 @@ if __name__ == "__main__":
     print(f"\nS3 경로:")
     print(f"  PDF: s3://{S3_BUCKET_NAME}/{S3_PDF_PREFIX}")
     print(f"  JSON: s3://{S3_BUCKET_NAME}/{S3_JSON_PREFIX}")
-    print(f"\n로컬 임시 저장:")
-    print(f"  {LOCAL_OUTPUT_DIR}")
     print()
     validate_config()
