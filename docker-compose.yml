@@ -34,8 +34,16 @@ services:
     environment:
       - VECTOR_STORE_PATH=/app/data/vector_store_pymupdf_text-embedding-ada-002_chroma
 
-  # crawler:
-  #   build: ./crawler
-  #   # env_file:
-  #   #   - ./.env
-  #   #   - ./crawler/.env
+  crawler:
+    build: ./crawler
+    env_file:
+      - ./.env
+    environment:
+      - INGESTION_SERVICE_URL=http://ingestion:5002
+    depends_on:
+      - ingestion
+    command: python scheduler.py
+    restart: unless-stopped
+    # 수동 실행 방법:
+    # docker-compose run --rm crawler python main.py  # 1회만 실행
+    # docker-compose run --rm crawler python test_s3_upload.py  # S3 업로드 테스트

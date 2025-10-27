@@ -47,8 +47,9 @@ class RetrievalRequest(BaseModel):
     catalogs: List[CourseInfo]
     interest_job: List[str]
     certification: List[str]
-    club_activities: List[str] = [] 
+    club_activities: List[str] = []
     query: Optional[str] = None
+    filter_expired: Optional[bool] = True  # 마감 지난 공고 필터링 (기본값: True)
 
 
 class RetrievalResponse(BaseModel):
@@ -66,8 +67,28 @@ class VectorSearchRequest(BaseModel):
 
 class VectorSearchResponse(BaseModel):
     """벡터 검색 테스트 응답"""
-    
+
     query: str
     total_found: int
     results: List[JobPosting]
     search_time_ms: Optional[float] = None  # 검색 소요 시간 (밀리초)
+
+
+class IncrementalDataRequest(BaseModel):
+    """증분 데이터 처리 요청"""
+
+    s3_prefix: Optional[str] = None         # S3 경로 (예: "datasets/test/" 또는 "datasets/daily/2025-01-20/")
+    rec_idx_list: Optional[List[str]] = None  # 특정 rec_idx 리스트 (크롤러에서 전달)
+    force_update: bool = False              # True면 중복 시 덮어쓰기, False면 스킵
+
+
+class IncrementalDataResponse(BaseModel):
+    """증분 데이터 처리 응답"""
+
+    success: bool
+    s3_prefix: Optional[str] = None
+    added: int                              # 신규 추가 개수
+    updated: int                            # 업데이트 개수
+    skipped: int                            # 스킵 개수
+    total_processed: int                    # 총 처리 개수
+    error: Optional[str] = None

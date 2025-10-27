@@ -15,14 +15,15 @@ PyMuPDF==1.23.6
 # scikit-learn
 
 # LangChain 코어
-langchain
-langchain-openai  
-openai 
+langchain==0.1.20
+langchain-openai==0.1.7
+openai==1.24.0
+httpx==0.26.0
 
 # LangChain Community Toolkit
 numpy
-langchain-community
-langchain-teddynote
+langchain-community==0.0.38
+# langchain-teddynote  # 주석처리: 복잡한 의존성으로 인한 빌드 문제
 
 # 벡터 DB (Chroma)
 chromadb

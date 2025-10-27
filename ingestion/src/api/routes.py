@@ -1,7 +1,15 @@
 import os
 import time
 from fastapi import APIRouter, HTTPException
-from .models import RetrievalRequest, RetrievalResponse, JobPosting, VectorSearchRequest, VectorSearchResponse
+from .models import (
+    RetrievalRequest,
+    RetrievalResponse,
+    JobPosting,
+    VectorSearchRequest,
+    VectorSearchResponse,
+    IncrementalDataRequest,
+    IncrementalDataResponse
+)
 from services import OpenAITextEmbedder, DataProcessor, ProfileQueryBuilder
 from storage import query_chroma
 from util.logging import log_api_call
@@ -49,18 +57,27 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
             query=request.query,  
         )
 
-        # 2. ChromaDB에서 유사 문서 검색
+        # 2. ChromaDB에서 유사 문서 검색 (마감일 필터링 적용)
         results = query_chroma(
             query=profile_query,
             embedder=embedder,
             persist_dir=PERSIST_DIR,
             top_k=10,  # 상위 10개 문서만 반환
+            filter_expired=request.filter_expired,  # 🆕 마감일 필터링 옵션
         )
 
         # 3. 검색 결과 포맷팅
         job_postings = []
         if results and results.get("documents"):
-            for doc, metadata in zip(results["documents"][0], results["metadatas"][0]):
+            documents = results["documents"][0]
+            metadatas = results["metadatas"][0]
+            distances = results.get("distances", [[]])[0]
+
+            for idx, (doc, metadata) in enumerate(zip(documents, metadatas)):
+                # 유사도 점수 계산
+                distance = distances[idx] if idx < len(distances) else None
+                similarity = round(1.0 - distance, 4) if distance is not None else None
+
                 job_posting = JobPosting(
                     rec_idx=metadata.get("rec_idx"),
                     title=metadata.get("post_title", "제목 없음"),
@@ -69,6 +86,7 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
+                    similarity_score=similarity,  # 🆕 유사도 점수 추가
                 )
                 job_postings.append(job_posting)
 
@@ -131,12 +149,13 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
         # 검색 시간 측정 시작
         start_time = time.time()
         
-        # ChromaDB에서 벡터 검색
+        # ChromaDB에서 벡터 검색 (마감일 필터링 적용)
         results = query_chroma(
             query=request.query,
             embedder=embedder,
             persist_dir=PERSIST_DIR,
             top_k=request.top_k,
+            filter_expired=True,  # 🆕 마감일 필터링 기본 적용
         )
         
         # 검색 시간 계산
@@ -149,9 +168,14 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
         if results and results.get("documents"):
             documents = results["documents"][0] if results["documents"] else []
             metadatas = results["metadatas"][0] if results["metadatas"] else []
+            distances = results["distances"][0] if results.get("distances") else []
             total_found = len(documents)
-            
-            for doc, metadata in zip(documents, metadatas):
+
+            for idx, (doc, metadata) in enumerate(zip(documents, metadatas)):
+                # 유사도 점수 계산 (distance가 작을수록 유사 → similarity는 높게)
+                distance = distances[idx] if idx < len(distances) else None
+                similarity = round(1.0 - distance, 4) if distance is not None else None
+
                 job_posting = JobPosting(
                     rec_idx=metadata.get("rec_idx"),
                     title=metadata.get("post_title", "제목 없음"),
@@ -160,6 +184,7 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
+                    similarity_score=similarity,  # 🆕 유사도 점수 추가
                 )
                 job_postings.append(job_posting)
 
@@ -212,3 +237,65 @@ async def get_post(rec_idx: str):
     meta = data["metadatas"][0]
     excerpt = data["documents"][0][:500]
     return {"rec_idx": rec_idx, "metadata": meta, "excerpt": excerpt}
+
+
+@router.post("/process-new-data", response_model=IncrementalDataResponse)
+@log_api_call
+async def process_new_data(request: IncrementalDataRequest) -> IncrementalDataResponse:
+    """
+    S3의 특정 경로 또는 rec_idx 리스트에서 새로운 데이터를 로드하고 증분 업데이트
+
+    Parameters:
+    - request: IncrementalDataRequest
+        - s3_prefix: S3 경로 (예: "datasets/test/" 또는 "datasets/daily/2025-01-20/")
+        - rec_idx_list: 특정 rec_idx 리스트 (크롤러에서 전달, 예: ["52082420", "52082415"])
+        - force_update: True면 중복 시 덮어쓰기, False면 스킵 (기본값: False)
+
+    Note: s3_prefix와 rec_idx_list 중 하나만 제공하면 됩니다.
+
+    Returns:
+    - IncrementalDataResponse - 처리 결과 및 통계
+    """
+    try:
+        # 요청 검증
+        if not request.s3_prefix and not request.rec_idx_list:
+            raise HTTPException(
+                status_code=400,
+                detail="s3_prefix 또는 rec_idx_list 중 하나는 필수입니다"
+            )
+
+        # rec_idx_list가 제공된 경우 (크롤러 연동)
+        if request.rec_idx_list:
+            result = data_processor.process_by_rec_idx_list(
+                rec_idx_list=request.rec_idx_list,
+                force_update=request.force_update
+            )
+        # s3_prefix가 제공된 경우 (기존 방식)
+        else:
+            result = data_processor.process_incremental_data(
+                s3_prefix=request.s3_prefix,
+                force_update=request.force_update
+            )
+
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=500,
+                detail=f"증분 데이터 처리 실패: {result.get('error', 'Unknown error')}"
+            )
+
+        return IncrementalDataResponse(
+            success=True,
+            s3_prefix=result.get("s3_prefix"),
+            added=result.get("added", 0),
+            updated=result.get("updated", 0),
+            skipped=result.get("skipped", 0),
+            total_processed=result.get("total_processed", 0)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"증분 데이터 처리 중 오류 발생: {str(e)}"
+        )

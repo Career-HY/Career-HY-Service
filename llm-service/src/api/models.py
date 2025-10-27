@@ -44,7 +44,9 @@ class RetrievalRequest(BaseModel):
     catalogs: List[CourseInfo]
     interest_job: List[str]
     certification: List[str]
-    club_activities: List[str] = [] 
+    club_activities: List[str] = []
+    query: Optional[str] = None
+    filter_expired: Optional[bool] = True  # 마감 지난 공고 필터링 (기본값: True) 
 
 
 class ChatHistoryMessage(BaseModel):

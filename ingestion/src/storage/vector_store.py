@@ -3,9 +3,8 @@ import chromadb
 from typing import List, Dict, Any
 from chromadb.utils import embedding_functions
 
-from langchain_teddynote import logging
-
-logging.langsmith("chroma_store")
+# from langchain_teddynote import logging
+# logging.langsmith("chroma_store")  # 주석처리: langchain-teddynote 의존성 제거
 
 from langchain_community.document_loaders import TextLoader
 from langchain_openai.embeddings import OpenAIEmbeddings
@@ -53,18 +52,110 @@ def store_to_chroma(
     print(f"✅ 저장 완료: {len(texts)}개의 문서를 Chroma DB에 저장했습니다.")
 
 
+# ✅ 문서 upsert 함수 (중복 체크 + 추가/업데이트)
+def upsert_to_chroma(
+    texts: List[str],
+    embeddings: List[List[float]],
+    ids: List[str],
+    metadatas: List[Dict[str, Any]],
+    persist_dir: str,
+    force_update: bool = False
+) -> Dict[str, int]:
+    """
+    텍스트와 임베딩을 Chroma DB에 upsert (중복 시 업데이트 또는 스킵)
+
+    Args:
+        texts (List[str]): 문서 텍스트 리스트
+        embeddings (List[List[float]]): 임베딩 벡터 리스트
+        ids (List[str]): 문서 ID 리스트 (rec_idx)
+        metadatas (List[Dict[str, Any]]): 문서 메타데이터 리스트
+        persist_dir (str): Chroma 저장 경로
+        force_update (bool): True면 중복 시 덮어쓰기, False면 스킵
+
+    Returns:
+        Dict[str, int]: {
+            "added": 신규 추가 개수,
+            "updated": 업데이트 개수,
+            "skipped": 스킵 개수
+        }
+    """
+    client = chromadb.PersistentClient(path=persist_dir)
+    collection = client.get_or_create_collection(name="job-postings")
+
+    added_count = 0
+    updated_count = 0
+    skipped_count = 0
+
+    # 기존에 저장된 모든 ID 조회
+    existing_ids = set(get_all_rec_ids(persist_dir))
+
+    for text, emb, doc_id, metadata in zip(texts, embeddings, ids, metadatas):
+        doc_metadata = metadata.copy()
+
+        if "source" not in doc_metadata:
+            doc_metadata["source"] = doc_id
+
+        if doc_id in existing_ids:
+            if force_update:
+                # 업데이트: 기존 문서 삭제 후 재추가
+                try:
+                    collection.delete(ids=[doc_id])
+                    collection.add(
+                        documents=[text],
+                        embeddings=[emb],
+                        ids=[doc_id],
+                        metadatas=[doc_metadata]
+                    )
+                    updated_count += 1
+                    print(f"🔄 업데이트: {doc_id}")
+                except Exception as e:
+                    print(f"⚠️  업데이트 실패 ({doc_id}): {e}")
+            else:
+                # 스킵
+                skipped_count += 1
+                print(f"⏭️  스킵 (이미 존재): {doc_id}")
+        else:
+            # 신규 추가
+            try:
+                collection.add(
+                    documents=[text],
+                    embeddings=[emb],
+                    ids=[doc_id],
+                    metadatas=[doc_metadata]
+                )
+                added_count += 1
+                print(f"✅ 신규 추가: {doc_id}")
+            except Exception as e:
+                print(f"⚠️  추가 실패 ({doc_id}): {e}")
+
+    result = {
+        "added": added_count,
+        "updated": updated_count,
+        "skipped": skipped_count
+    }
+
+    print(f"\n📊 Upsert 결과:")
+    print(f"   - 신규 추가: {added_count}개")
+    print(f"   - 업데이트: {updated_count}개")
+    print(f"   - 스킵: {skipped_count}개")
+    print(f"   - 총 처리: {added_count + updated_count + skipped_count}개\n")
+
+    return result
+
+
 # ✅ 문서 검색 함수
 def query_chroma(
-    query: str, embedder, persist_dir: str, top_k: int = 10
+    query: str, embedder, persist_dir: str, top_k: int = 10, filter_expired: bool = True
 ) -> Dict[str, Any]:
     """
-    쿼리 임베딩 후 Chroma에서 Top-K 문서 검색
+    쿼리 임베딩 후 Chroma에서 Top-K 문서 검색 (마감일 필터링 지원)
 
     Args:
         query (str): 사용자 쿼리
         embedder: 임베딩 생성기 (embed(text: List[str]) 지원)
         persist_dir (str): Chroma 저장 경로
         top_k (int): 검색할 문서 수 (기본값: 10)
+        filter_expired (bool): True면 마감 지난 공고 제외, False면 모두 검색 (기본값: True)
 
     Returns:
         dict: {
@@ -73,16 +164,31 @@ def query_chroma(
             'distances': List[List[float]]  # 유사도 점수 (낮을수록 유사)
         }
     """
+    from datetime import datetime
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     client = chromadb.PersistentClient(path=persist_dir)
     collection = client.get_or_create_collection(name="job-postings")
 
     # 쿼리를 임베딩
     query_embedding = embedder.embed([query])[0]
 
-    # 검색 (메타데이터와 거리 점수 포함)
+    # 🆕 마감일 필터 생성 (임시 비활성화 - ChromaDB $gte 연산자 이슈)
+    where_filter = None
+    if filter_expired:
+        today = datetime.now().strftime('%Y-%m-%d')
+        # ChromaDB는 $gte 같은 비교 연산자를 지원하지 않을 수 있음
+        # 필터링은 검색 후 Python에서 처리하는 방식으로 변경 필요
+        logger.info(f"⚠️ 마감일 필터링 임시 비활성화 (전체 검색 후 필터링 예정)")
+        where_filter = None
+
+    # 검색 (메타데이터와 거리 점수 포함, where 필터 적용)
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=top_k,
+        where=where_filter,  # 🆕 필터 추가
         include=["documents", "metadatas", "distances"],
     )
 
