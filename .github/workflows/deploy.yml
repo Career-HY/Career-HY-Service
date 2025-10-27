@@ -5,19 +5,22 @@ on:
     branches: ["dev"]
   workflow_dispatch:
 
-# GITHUB_TOKEN 권한은 최소화 (푸시는 PAT로 처리)
 permissions:
   contents: read
 
 env:
   REGISTRY: ghcr.io
   ORG: career-hy
+
   BACKEND_IMAGE: ghcr.io/career-hy/backend
   LLM_IMAGE: ghcr.io/career-hy/llm-service
   INGEST_IMAGE: ghcr.io/career-hy/ingestion
+  CRAWLER_IMAGE: ghcr.io/career-hy/crawler
+
   BACKEND_SERVICE: rag_backend
   LLM_SERVICE: rag_llm-service
   INGEST_SERVICE: rag_ingestion
+  CRAWLER_SERVICE: rag_crawler
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -35,14 +38,21 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             image: ghcr.io/career-hy/backend
+
           - name: llm-service
             context: ./llm-service
             dockerfile: ./llm-service/Dockerfile
             image: ghcr.io/career-hy/llm-service
+
           - name: ingestion
             context: ./ingestion
             dockerfile: ./ingestion/Dockerfile
             image: ghcr.io/career-hy/ingestion
+
+          - name: crawler
+            context: ./crawler
+            dockerfile: ./crawler/Dockerfile
+            image: ghcr.io/career-hy/crawler
 
     steps:
       - name: Checkout
@@ -51,7 +61,7 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # GHCR 로그인 (PAT 사용)
+      # 로그인: PAT로 GHCR에 push 가능하게
       - name: Login to GHCR (PAT)
         uses: docker/login-action@v3
         with:
@@ -84,7 +94,7 @@ jobs:
           chmod 600 ~/.ssh/ci_key
           ssh-keyscan -H "${{ secrets.EC2_HOST_A }}" >> ~/.ssh/known_hosts
 
-      # (중요) 프라이빗 GHCR이면 원격 서버도 GHCR 로그인 필요
+      # 매니저 노드에서 GHCR pull 가능하게 로그인
       - name: Remote GHCR login
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
@@ -95,36 +105,105 @@ jobs:
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
             "echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true"
 
+      # Backend
       - name: Deploy Backend
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image $BACKEND_IMAGE:dev --update-order stop-first $BACKEND_SERVICE \
-              || docker service create --name $BACKEND_SERVICE --publish 5001:5001 $BACKEND_IMAGE:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image $BACKEND_IMAGE:dev \
+              --update-order stop-first \
+              $BACKEND_SERVICE \
+            || \
+            docker service create \
+              --name $BACKEND_SERVICE \
+              --with-registry-auth \
+              --replicas 2 \
+              --constraint 'node.platform.os==linux' \
+              --publish 5001:5001 \
+              $BACKEND_IMAGE:dev
+          "
 
+      # LLM Service
       - name: Deploy LLM-Service
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image $LLM_IMAGE:dev --update-order stop-first $LLM_SERVICE \
-              || docker service create --name $LLM_SERVICE $LLM_IMAGE:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image $LLM_IMAGE:dev \
+              --update-order stop-first \
+              $LLM_SERVICE \
+            || \
+            docker service create \
+              --name $LLM_SERVICE \
+              --with-registry-auth \
+              --replicas 2 \
+              --constraint 'node.platform.os==linux' \
+              --publish 5003:5003 \
+              $LLM_IMAGE:dev
+          "
 
+      # Ingestion
       - name: Deploy Ingestion
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update --image $INGEST_IMAGE:dev --update-order stop-first $INGEST_SERVICE \
-              || docker service create --name $INGEST_SERVICE $INGEST_IMAGE:dev"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image $INGEST_IMAGE:dev \
+              --update-order stop-first \
+              $INGEST_SERVICE \
+            || \
+            docker service create \
+              --name $INGEST_SERVICE \
+              --with-registry-auth \
+              --replicas 1 \
+              --constraint 'node.platform.os==linux' \
+              $INGEST_IMAGE:dev
+          "
+
+      # Crawler
+      - name: Deploy Crawler
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image $CRAWLER_IMAGE:dev \
+              --env-add OPENAI_API_KEY='${OPENAI_API_KEY}' \
+              --env-add INGESTION_SERVICE_URL=http://rag_ingestion:5002 \
+              --update-order stop-first \
+              $CRAWLER_SERVICE \
+            || \
+            docker service create \
+              --name $CRAWLER_SERVICE \
+              --with-registry-auth \
+              --replicas 1 \
+              --constraint node.role==manager \
+              --env OPENAI_API_KEY='${OPENAI_API_KEY}' \
+              --env INGESTION_SERVICE_URL=http://rag_ingestion:5002 \
+              $CRAWLER_IMAGE:dev
+          "
 
       - name: Check Swarm status
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "docker service ls && echo && docker node ls && echo && docker service ps $BACKEND_SERVICE --no-trunc"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service ls && echo &&
+            docker node ls && echo &&
+            docker service ps $BACKEND_SERVICE --no-trunc && echo &&
+            docker service ps $CRAWLER_SERVICE --no-trunc
+          "
