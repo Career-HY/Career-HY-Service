@@ -15,12 +15,10 @@ env:
   BACKEND_IMAGE: ghcr.io/career-hy/backend
   LLM_IMAGE: ghcr.io/career-hy/llm-service
   INGEST_IMAGE: ghcr.io/career-hy/ingestion
-  CRAWLER_IMAGE: ghcr.io/career-hy/crawler
 
   BACKEND_SERVICE: rag_backend
   LLM_SERVICE: rag_llm-service
   INGEST_SERVICE: rag_ingestion
-  CRAWLER_SERVICE: rag_crawler
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -49,11 +47,6 @@ jobs:
             dockerfile: ./ingestion/Dockerfile
             image: ghcr.io/career-hy/ingestion
 
-          - name: crawler
-            context: ./crawler
-            dockerfile: ./crawler/Dockerfile
-            image: ghcr.io/career-hy/crawler
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,8 +54,6 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # GHCR 로그인 (PAT 사용)
-      # -> GHCR_PAT 은 org 패키지 write 권한 있는 Personal Access Token
       - name: Login to GHCR (PAT)
         uses: docker/login-action@v3
         with:
@@ -70,10 +61,6 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # 공통 빌드 & 푸시
-      # - 각 서비스 디렉토리의 Dockerfile로 이미지를 빌드
-      # - :dev 와 :<커밋SHA> 두 태그로 GHCR에 push
-      # - 절대 OPENAI_API_KEY 같은 민감값은 이미지에 굽지 않음
       - name: Build & Push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
@@ -99,8 +86,6 @@ jobs:
           chmod 600 ~/.ssh/ci_key
           ssh-keyscan -H "${{ secrets.EC2_HOST_A }}" >> ~/.ssh/known_hosts
 
-      # 매니저 노드에서 GHCR 로그인
-      # -> 이렇게 해야 service update 시 워커 노드들까지 private image pull 가능 (--with-registry-auth 로 전파)
       - name: Remote GHCR login
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
@@ -111,110 +96,59 @@ jobs:
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
             "echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true"
 
-      # backend 롤링 업데이트
-      # 이미 rag_backend 서비스는 존재하므로 create 하지 않고 update만 시도
-      - name: Update Backend service
+      - name: Deploy Backend (update only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
+          BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
+          BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
         run: |
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
             "docker service update \
                --with-registry-auth \
+               --image ${BACKEND_IMAGE}:dev \
                --update-order stop-first \
-               --force \
-               --image $BACKEND_IMAGE:dev \
-               $BACKEND_SERVICE || true"
+               ${BACKEND_SERVICE}"
 
-      # llm-service 롤링 업데이트
-      - name: Update LLM service
+      - name: Deploy LLM-Service (update only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
+          LLM_IMAGE: ${{ env.LLM_IMAGE }}
+          LLM_SERVICE: ${{ env.LLM_SERVICE }}
         run: |
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
             "docker service update \
                --with-registry-auth \
+               --image ${LLM_IMAGE}:dev \
                --update-order stop-first \
-               --force \
-               --image $LLM_IMAGE:dev \
-               $LLM_SERVICE || true"
+               ${LLM_SERVICE}"
 
-      # ingestion 롤링 업데이트
-      - name: Update Ingestion service
+      - name: Deploy Ingestion (update only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
+          INGEST_IMAGE: ${{ env.INGEST_IMAGE }}
+          INGEST_SERVICE: ${{ env.INGEST_SERVICE }}
         run: |
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
             "docker service update \
                --with-registry-auth \
+               --image ${INGEST_IMAGE}:dev \
                --update-order stop-first \
-               --force \
-               --image $INGEST_IMAGE:dev \
-               $INGEST_SERVICE || true"
-
-      # crawler: 없으면 create, 있으면 update
-      # - manager 노드에서만 돌도록 constraint
-      # - replicas=1 (싱글톤 잡 느낌)
-      # - 환경변수는 여기서 주입 (OPENAI_API_KEY 포함)
-      - name: Ensure Crawler service
-        env:
-          HOST: ${{ secrets.EC2_HOST_A }}
-          USER: ${{ secrets.EC2_USER }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} '
-            if docker service inspect '"$CRAWLER_SERVICE"' >/dev/null 2>&1; then
-              echo "[crawler] service exists: updating"
-              docker service update \
-                --with-registry-auth \
-                --update-order stop-first \
-                --force \
-                --image '"$CRAWLER_IMAGE"':dev \
-                --env-add OPENAI_API_KEY='"$OPENAI_API_KEY"' \
-                --env-add INGESTION_SERVICE_URL=http://'"$INGEST_SERVICE"':5002 \
-                --env-add S3_BUCKET_NAME=career-hi \
-                --env-add CRAWL_SCHEDULE_HOUR=01 \
-                --env-add CRAWL_SCHEDULE_MINUTE=30 \
-                --env-add CRAWL_MAX_PAGES=100 \
-                --env-add CRAWL_RUN_IMMEDIATELY=false \
-                '"$CRAWLER_SERVICE"' || true
-            else
-              echo "[crawler] service missing: creating"
-              docker service create \
-                --name '"$CRAWLER_SERVICE"' \
-                --constraint '\''node.role==manager'\'' \
-                --replicas 1 \
-                --restart-condition any \
-                --with-registry-auth \
-                --env OPENAI_API_KEY='"$OPENAI_API_KEY"' \
-                --env INGESTION_SERVICE_URL=http://'"$INGEST_SERVICE"':5002 \
-                --env S3_BUCKET_NAME=career-hi \
-                --env CRAWL_SCHEDULE_HOUR=01 \
-                --env CRAWL_SCHEDULE_MINUTE=30 \
-                --env CRAWL_MAX_PAGES=100 \
-                --env CRAWL_RUN_IMMEDIATELY=false \
-                '"$CRAWLER_IMAGE"':dev \
-                || true
-            fi
-          '
+               ${INGEST_SERVICE}"
 
       - name: Check Swarm status
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
+          BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
         run: |
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} "\
             echo '=== service ls ===' && \
-            docker service ls && \
-            echo && \
+            docker service ls && echo && \
             echo '=== node ls ===' && \
-            docker node ls && \
-            echo && \
-            echo '=== rag_backend ps ===' && \
-            docker service ps $BACKEND_SERVICE --no-trunc && \
-            echo && \
-            echo '=== rag_crawler ps ===' && \
-            docker service ps $CRAWLER_SERVICE --no-trunc || true \
+            docker node ls && echo && \
+            echo '=== detail backend ===' && \
+            docker service ps ${BACKEND_SERVICE} --no-trunc \
           "
