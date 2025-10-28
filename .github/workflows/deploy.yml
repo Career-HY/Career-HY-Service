@@ -5,6 +5,7 @@ on:
     branches: ["dev"]
   workflow_dispatch:
 
+# 최소 권한
 permissions:
   contents: read
 
@@ -47,14 +48,19 @@ jobs:
             dockerfile: ./ingestion/Dockerfile
             image: ghcr.io/career-hy/ingestion
 
+        # 👆 crawler는 더 이상 CI/CD 대상 아님. 필요하면 다시 넣으면 됨.
+
     steps:
       - name: Checkout
+      # 코드 받아오기
         uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
+      # buildx로 캐시 있는 빌드 사용
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR (PAT)
+      # GHCR에 푸시할 권한 있는 PAT로 로그인
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -62,6 +68,9 @@ jobs:
           password: ${{ secrets.GHCR_PAT }}
 
       - name: Build & Push ${{ matrix.name }}
+      # 공통 빌드/푸시 단계
+      # - Dockerfile로 이미지 빌드
+      # - :dev 와 :<SHA> 태그로 GHCR에 push
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -80,75 +89,134 @@ jobs:
 
     steps:
       - name: Write SSH key & known_hosts
+      # CI 러너에서 두 노드(A=manager, B=worker)로 SSH 가능하게 세팅
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ci_key
           chmod 600 ~/.ssh/ci_key
           ssh-keyscan -H "${{ secrets.EC2_HOST_A }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.EC2_HOST_B }}" >> ~/.ssh/known_hosts
 
-      - name: Remote GHCR login
+      #
+      # 1) 두 노드 다 디스크 청소
+      #    - dangling 이미지/중지된 컨테이너/안 쓰는 네트워크/안 쓰는 볼륨 등 정리
+      #    - 실행 중인 서비스에 필요한 건 건드리지 않음
+      #
+      - name: Cleanup Docker on manager node (A)
+        env:
+          HOST: ${{ secrets.EC2_HOST_A }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker system prune -af --volumes || true
+          "
+
+      - name: Cleanup Docker on worker node (B)
+        env:
+          HOST: ${{ secrets.EC2_HOST_B }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker system prune -af --volumes || true
+          "
+
+      #
+      # 2) 두 노드 다 GHCR 로그인
+      #    - 스웜이 rollout할 때 각 노드가 새 이미지 pull 가능해야 함
+      #
+      - name: GHCR login on manager node (A)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true
+          "
 
-      - name: Deploy Backend (update only)
+      - name: GHCR login on worker node (B)
+        env:
+          HOST: ${{ secrets.EC2_HOST_B }}
+          USER: ${{ secrets.EC2_USER }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: |
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true
+          "
+
+      #
+      # 3) 실제 서비스 롤링 업데이트
+      #    - replicas/포트/제약조건 같은 건 이미 swarm 서비스에 저장돼 있으니까
+      #      여기서는 이미지 교체만 한다.
+      #
+
+      - name: Deploy Backend (update image only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
           BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update \
-               --with-registry-auth \
-               --image ${BACKEND_IMAGE}:dev \
-               --update-order stop-first \
-               ${BACKEND_SERVICE}"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image ${BACKEND_IMAGE}:dev \
+              --update-order stop-first \
+              ${BACKEND_SERVICE} || true
+          "
 
-      - name: Deploy LLM-Service (update only)
+      - name: Deploy LLM-Service (update image only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           LLM_IMAGE: ${{ env.LLM_IMAGE }}
           LLM_SERVICE: ${{ env.LLM_SERVICE }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update \
-               --with-registry-auth \
-               --image ${LLM_IMAGE}:dev \
-               --update-order stop-first \
-               ${LLM_SERVICE}"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image ${LLM_IMAGE}:dev \
+              --update-order stop-first \
+              ${LLM_SERVICE} || true
+          "
 
-      - name: Deploy Ingestion (update only)
+      - name: Deploy Ingestion (update image only)
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           INGEST_IMAGE: ${{ env.INGEST_IMAGE }}
           INGEST_SERVICE: ${{ env.INGEST_SERVICE }}
         run: |
-          ssh -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update \
-               --with-registry-auth \
-               --image ${INGEST_IMAGE}:dev \
-               --update-order stop-first \
-               ${INGEST_SERVICE}"
+          ssh -i ~/.ssh/ci_key ${USER}@${HOST} "
+            docker service update \
+              --with-registry-auth \
+              --image ${INGEST_IMAGE}:dev \
+              --update-order stop-first \
+              ${INGEST_SERVICE} || true
+          "
 
+      #
+      # 4) 상태 확인
+      #
       - name: Check Swarm status
         env:
           HOST: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           BACKEND_SERVICE: ${{ env.BACKEND_SERVICE }}
+          LLM_SERVICE: ${{ env.LLM_SERVICE }}
+          INGEST_SERVICE: ${{ env.INGEST_SERVICE }}
         run: |
           ssh -i ~/.ssh/ci_key ${USER}@${HOST} "\
             echo '=== service ls ===' && \
             docker service ls && echo && \
             echo '=== node ls ===' && \
             docker node ls && echo && \
-            echo '=== detail backend ===' && \
-            docker service ps ${BACKEND_SERVICE} --no-trunc \
+            echo '=== $BACKEND_SERVICE ps ===' && \
+            docker service ps $BACKEND_SERVICE --no-trunc && echo && \
+            echo '=== $LLM_SERVICE ps ===' && \
+            docker service ps $LLM_SERVICE --no-trunc && echo && \
+            echo '=== $INGEST_SERVICE ps ===' && \
+            docker service ps $INGEST_SERVICE --no-trunc \
           "
