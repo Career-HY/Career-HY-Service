@@ -18,7 +18,6 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-northeast-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "career-hi")
 
 # 크롤링 설정
-# 주의: CRAWL_SCHEDULE_HOUR/MINUTE은 scheduler.py에서 직접 환경변수를 읽음
 CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
 CRAWL_MODE = os.getenv("CRAWL_MODE", "daily")  # 'test', 'daily', 'initial'
 
@@ -28,16 +27,20 @@ INGESTION_SERVICE_URL = os.getenv("INGESTION_SERVICE_URL", "http://localhost:500
 # S3 경로 설정 (날짜별 디렉토리 구조)
 from datetime import datetime
 
-CRAWL_DATE = datetime.now().strftime("%Y-%m-%d")  # 크롤링 날짜
+# ⚠️ 주의: 아래 상수들은 모듈 로드 시점의 날짜로 고정됩니다.
+# 실제 업로드 시에는 S3Uploader.upload_data() 내부에서 동적으로 날짜를 계산합니다.
+# 이 상수들은 레거시 메서드(upload_pdf, upload_json 등)에서만 사용되며,
+# 현재 main.py에서는 사용되지 않습니다.
+CRAWL_DATE = datetime.now().strftime("%Y-%m-%d")  # 크롤링 날짜 (⚠️ 모듈 로드 시점에 고정됨)
 
-# S3 경로: datasets/{YYYY-MM-DD}/pdf|json/
+# S3 경로: datasets/{YYYY-MM-DD}/pdf|json/ (⚠️ 레거시 용도)
 S3_BASE_PREFIX = f"datasets/{CRAWL_DATE}/"
 S3_PDF_PREFIX = f"{S3_BASE_PREFIX}pdf/"
 S3_JSON_PREFIX = f"{S3_BASE_PREFIX}json/"
 S3_METADATA_PREFIX = "datasets/metadata/"  # 메타데이터는 날짜 구분 없음
 
-print(f"📁 S3 구조: {S3_PDF_PREFIX}, {S3_JSON_PREFIX}")
-print(f"📅 크롤링 날짜: {CRAWL_DATE}")
+print(f"📁 S3 구조 (레거시): {S3_PDF_PREFIX}, {S3_JSON_PREFIX}")
+print(f"📅 모듈 로드 날짜: {CRAWL_DATE}")
 
 # 사람인 크롤링 URL 파라미터
 SARAMIN_BASE_URL = "https://www.saramin.co.kr/zf_user/jobs/public/list"

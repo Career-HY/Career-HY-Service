@@ -18,9 +18,8 @@ from .config import (
     AWS_SECRET_ACCESS_KEY,
     AWS_DEFAULT_REGION,
     S3_BUCKET_NAME,
-    S3_PDF_PREFIX,
-    S3_JSON_PREFIX,
-    S3_METADATA_PREFIX
+    S3_METADATA_PREFIX,
+    CRAWL_MODE
 )
 
 # 로깅 설정
@@ -175,11 +174,14 @@ class S3Uploader:
         Returns:
             tuple[bool, bool]: (PDF 업로드 성공 여부, JSON 업로드 성공 여부)
         """
-        # S3 경로: datasets/pdf/{rec_idx}.pdf
-        pdf_s3_key = f"{S3_PDF_PREFIX}{rec_idx}.pdf"
-        json_s3_key = f"{S3_JSON_PREFIX}{rec_idx}.json"
+        # 업로드 시점의 날짜 계산 (매번 새로 계산)
+        crawl_date = datetime.now().strftime("%Y-%m-%d")
 
-        logger.info(f"📤 메모리에서 직접 업로드: {rec_idx}")
+        # S3 경로: datasets/{YYYY-MM-DD}/pdf/{rec_idx}.pdf
+        pdf_s3_key = f"datasets/{crawl_date}/pdf/{rec_idx}.pdf"
+        json_s3_key = f"datasets/{crawl_date}/json/{rec_idx}.json"
+
+        logger.info(f"📤 메모리에서 직접 업로드: {rec_idx} → {crawl_date}/")
 
         pdf_success = False
         json_success = False

@@ -49,11 +49,23 @@ class SaraminCrawler:
     def create_driver(self) -> webdriver.Chrome:
         """Chrome/Chromium 드라이버 생성"""
         chrome_options = Options()
+
+        # Headless 모드 설정
         if self.headless:
-            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--headless=new')  # 최신 headless 모드
+
+        # Docker/EC2 환경을 위한 필수 옵션들
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-setuid-sandbox')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-background-networking')
+        chrome_options.add_argument('--disable-default-apps')
+        chrome_options.add_argument('--disable-sync')
+        chrome_options.add_argument('--mute-audio')
+        chrome_options.add_argument('--no-first-run')
+
         chrome_options.add_argument(
             "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -70,14 +82,10 @@ class SaraminCrawler:
         try:
             driver = webdriver.Chrome(options=chrome_options)
             logger.info("✅ 드라이버 생성 완료 (시스템 ChromeDriver 사용)")
+            return driver
         except Exception as e:
-            logger.warning(f"⚠️  시스템 ChromeDriver 실패, webdriver-manager 시도 중...")
-            from webdriver_manager.chrome import ChromeDriverManager
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("✅ 드라이버 생성 완료 (webdriver-manager 사용)")
-
-        return driver
+            logger.error(f"❌ ChromeDriver 실행 실패: {e}")
+            raise
 
     def parse_deadline_to_standard_format(self, deadline_text: str) -> str:
         """
@@ -325,120 +333,6 @@ class SaraminCrawler:
                 "status": "failed",
                 "error": str(e)
             }
-
-    def crawl_with_latest_stop(self, max_pages: Optional[int] = None, max_posts_per_page: Optional[int] = None, previous_latest_rec_idx: Optional[str] = None) -> List[Dict]:
-        """
-        크롤링 실행 (최신순 정렬 + previous_latest_rec_idx에서 중단)
-
-        Args:
-            max_pages: 최대 크롤링할 페이지 수 (None이면 설정 파일 값 사용)
-            max_posts_per_page: 페이지당 최대 크롤링할 공고 수 (None이면 전체)
-            previous_latest_rec_idx: 이전 크롤링의 latest rec_idx (이 값 발견 시 중단)
-
-        Returns:
-            List[Dict]: 크롤링 결과 리스트
-        """
-        if max_pages is None:
-            max_pages = CRAWL_MAX_PAGES
-
-        logger.info(f"\n{'='*60}")
-        logger.info(f"🕷️  사람인 크롤링 시작 (최대 {max_pages}페이지) - 최신순 정렬")
-        logger.info(f"{'='*60}\n")
-
-        if previous_latest_rec_idx:
-            logger.info(f"📌 이전 latest: {previous_latest_rec_idx} (이 공고 발견 시 중단)")
-        else:
-            logger.info(f"🆕 첫 실행: 전체 크롤링")
-
-        self.results = []
-        self.new_rec_ids = []
-        self.stopped_at_latest = False
-
-        try:
-            self.driver = self.create_driver()
-
-            for page in range(1, max_pages + 1):
-                logger.info(f"\n{'─'*60}")
-                logger.info(f"📄 페이지 {page}/{max_pages} 처리 중")
-                logger.info(f"{'─'*60}\n")
-
-                # 채용공고 링크 추출
-                posts = self.extract_job_links(page)
-
-                if not posts:
-                    logger.warning(f"⚠️  페이지 {page}에서 공고를 찾지 못했습니다. 크롤링 종료.")
-                    break
-
-                # max_posts_per_page 제한 적용
-                if max_posts_per_page:
-                    posts = posts[:max_posts_per_page]
-
-                # 각 공고 크롤링
-                for idx, (rec_idx, detail_url) in enumerate(posts, 1):
-                    # 2️⃣ latest_rec_idx 발견 시 즉시 중단!
-                    if previous_latest_rec_idx and rec_idx == previous_latest_rec_idx:
-                        logger.info(f"🛑 어제의 latest_rec_idx 발견: {rec_idx}")
-                        logger.info(f"   → 크롤링 즉시 중단! (신규 공고 수집 완료)")
-                        self.stopped_at_latest = True
-                        break
-
-                    # 3️⃣ 신규 공고 크롤링
-                    logger.info(f"🆕 {rec_idx} - 신규 공고, 크롤링 시작")
-                    result = self.crawl_job_detail(rec_idx, detail_url)
-                    if result:
-                        self.results.append(result)
-
-                        # 성공한 경우 신규 공고 리스트에 추가
-                        if result.get('status') == 'success':
-                            self.new_rec_ids.append(rec_idx)
-
-                    # 다음 공고 전 대기
-                    if idx < len(posts):
-                        wait_time = random.uniform(2, 4)
-                        logger.info(f"⏳ {wait_time:.1f}초 대기 중...")
-                        time.sleep(wait_time)
-
-                # latest 발견으로 중단되었으면 페이지 순회도 중단
-                if self.stopped_at_latest:
-                    break
-
-                # 다음 페이지 전 대기
-                if page < max_pages:
-                    wait_time = random.uniform(5, 10)
-                    logger.info(f"\n⏳ 다음 페이지 전 {wait_time:.1f}초 대기 중...\n")
-                    time.sleep(wait_time)
-
-            # 최종 결과
-            success_count = sum(1 for r in self.results if r.get('status') == 'success')
-            fail_count = sum(1 for r in self.results if r.get('status') == 'failed')
-
-            logger.info(f"\n{'='*60}")
-            if self.stopped_at_latest:
-                logger.info(f"✅ 크롤링 완료! (latest 발견으로 조기 중단)")
-            else:
-                logger.info(f"✅ 크롤링 완료!")
-            logger.info(f"{'='*60}")
-            logger.info(f"📊 수집 결과:")
-            logger.info(f"   - 신규 수집: {success_count}개")
-            logger.info(f"   - 실패: {fail_count}개")
-            logger.info(f"   - 총 확인: {len(self.results)}개")
-            if self.stopped_at_latest:
-                logger.info(f"   - 조기 중단: ✅ (효율적!)")
-            logger.info(f"{'='*60}\n")
-
-            return self.results
-
-        except Exception as e:
-            logger.error(f"\n❌ 크롤링 중 치명적 오류 발생: {e}")
-            import traceback
-            traceback.print_exc()
-            return self.results
-
-        finally:
-            if self.driver:
-                logger.info("🔌 브라우저 종료 중...")
-                self.driver.quit()
-                logger.info("✅ 브라우저 종료 완료")
 
     def get_successful_results(self) -> List[Dict]:
         """성공한 크롤링 결과만 반환"""

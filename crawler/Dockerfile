@@ -26,5 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 소스 코드 복사
 COPY . .
 
-# 기본 명령어 (docker-compose에서 override 가능)
-CMD ["python", "scheduler.py"]
+# 기본 명령어
+# EC2 Spot에서는 Cron이 직접 python main.py를 실행
+# Docker 환경에서 테스트 시: docker run crawler
+CMD ["python", "main.py"]
