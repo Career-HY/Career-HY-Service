@@ -20,7 +20,7 @@ env:
   BACKEND_SERVICE: rag_backend
   LLM_SERVICE: rag_llm-service
   INGEST_SERVICE: rag_ingestion
-  # rag_crawler는 자동 배포 안 함 (메모리 등 리소스 이슈로 제외)
+  # rag_crawler는 스웜 외부에서 별도 운영, 자동 배포 안 함
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -69,11 +69,8 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # 서비스별 이미지 빌드 & push
-      # 여기선 어떤 서비스든 공통적으로:
-      #   - 도커파일 기반으로 빌드
-      #   - :dev 와 :<커밋SHA> 태그로 GHCR에 push
-      #   - 민감 env는 절대 주입 안 함 (런타임에 노드에서 넣음)
+      # 서비스 공통 빌드 & 푸시
+      # dev 태그와 커밋SHA 태그 두 개를 푸시
       - name: Build & Push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
@@ -93,136 +90,165 @@ jobs:
 
     steps:
       #######################################################
-      # SSH 설정 (manager, worker 두 노드 다 접속 필요)
+      # SSH 준비 (키 저장)
       #######################################################
-      - name: Prepare SSH key and known_hosts
+      - name: Prepare SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ci_key
           chmod 600 ~/.ssh/ci_key
 
       #######################################################
-      # 매니저 노드 디스크 청소 (남는 이미지만 삭제)
+      # 매니저 노드(A) 디스크 정리
+      # - 컨테이너/이미지만 정리 (볼륨은 놔둠: chroma_data 지켜야 함)
       #######################################################
       - name: Cleanup Docker on manager (HOST_A)
         env:
-          HOST: ${{ secrets.EC2_HOST_A }}
+          HOST_A: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker container prune -f && docker image prune -a -f || true"
+            -i ~/.ssh/ci_key ${USER}@${HOST_A} "\
+              docker container prune -f && \
+              docker image prune -a -f || true && \
+              df -h && docker system df -v \
+            "
 
       #######################################################
-      # 워커 노드 디스크 청소 (있으면)
-      # - ingestion이 워커에서 큰 이미지를 쓰기 때문에 여유 공간 확보
-      # - HOST_B가 설정돼 있으면만 실행
+      # 워커 노드(B) 디스크 정리
+      # - GitHub Actions은 step-level if에서 secrets.*를 못 씀
+      #   => 쉘 안에서 직접 조건으로 분기
       #######################################################
       - name: Cleanup Docker on worker (HOST_B)
-        if: ${{ secrets.EC2_HOST_B != '' }}
         env:
-          HOST: ${{ secrets.EC2_HOST_B }}
+          HOST_B: ${{ secrets.EC2_HOST_B }}
           USER: ${{ secrets.EC2_USER }}
         run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker container prune -f && docker image prune -a -f || true"
+          if [ -n "$HOST_B" ]; then
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/ci_key ${USER}@${HOST_B} "\
+                docker container prune -f && \
+                docker image prune -a -f || true && \
+                df -h && docker system df -v \
+              "
+          else
+            echo "[skip] HOST_B not set, skipping worker cleanup"
+          fi
 
       #######################################################
-      # 두 노드 다 GHCR에 로그인 (pull 권한 보장)
+      # GHCR 로그인 - 매니저 노드
       #######################################################
       - name: Remote GHCR login (manager)
         env:
-          HOST: ${{ secrets.EC2_HOST_A }}
+          HOST_A: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true"
+            -i ~/.ssh/ci_key ${USER}@${HOST_A} "\
+              echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true \
+            "
 
+      #######################################################
+      # GHCR 로그인 - 워커 노드 (있으면)
+      #######################################################
       - name: Remote GHCR login (worker)
-        if: ${{ secrets.EC2_HOST_B != '' }}
         env:
-          HOST: ${{ secrets.EC2_HOST_B }}
+          HOST_B: ${{ secrets.EC2_HOST_B }}
           USER: ${{ secrets.EC2_USER }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
         run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true"
+          if [ -n "$HOST_B" ]; then
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/ci_key ${USER}@${HOST_B} "\
+                echo '${GHCR_PAT}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin || true \
+              "
+          else
+            echo "[skip] HOST_B not set, skipping worker GHCR login"
+          fi
 
       #######################################################
       # backend 롤링 업데이트
-      # - 스웜 전체에 2 replicas (manager/worker 한 개씩)
-      # - 포트 5001은 이미 service에 묶여있으므로 create 분기에서만 publish
+      # - replicas=2 (manager 1개 + worker 1개)
+      # - 만약 서비스 없으면 create로 새로 만들고 publish 5001 붙임
       #######################################################
       - name: Deploy Backend
         env:
-          HOST: ${{ secrets.EC2_HOST_A }}
+          HOST_A: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update \
-               --with-registry-auth \
-               --image $BACKEND_IMAGE:dev \
-               --update-order stop-first \
-               $BACKEND_SERVICE \
-             || \
-             docker service create \
-               --name $BACKEND_SERVICE \
-               --with-registry-auth \
-               --publish 5001:5001 \
-               $BACKEND_IMAGE:dev"
+            -i ~/.ssh/ci_key ${USER}@${HOST_A} "\
+              docker service update \
+                --with-registry-auth \
+                --image $BACKEND_IMAGE:dev \
+                --update-order stop-first \
+                $BACKEND_SERVICE \
+              || \
+              docker service create \
+                --name $BACKEND_SERVICE \
+                --with-registry-auth \
+                --publish 5001:5001 \
+                --replicas 2 \
+                $BACKEND_IMAGE:dev \
+            "
 
       #######################################################
       # llm-service 롤링 업데이트
-      # - 마찬가지로 2 replicas
-      # - 포트 5003도 service create시에만 설정
+      # - replicas=2 (manager 1개 + worker 1개)
+      # - 없으면 새로 만들고 publish 5003 붙임
       #######################################################
       - name: Deploy LLM-Service
         env:
-          HOST: ${{ secrets.EC2_HOST_A }}
+          HOST_A: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} \
-            "docker service update \
-               --with-registry-auth \
-               --image $LLM_IMAGE:dev \
-               --update-order stop-first \
-               $LLM_SERVICE \
-             || \
-             docker service create \
-               --name $LLM_SERVICE \
-               --with-registry-auth \
-               --publish 5003:5003 \
-               $LLM_IMAGE:dev"
+            -i ~/.ssh/ci_key ${USER}@${HOST_A} "\
+              docker service update \
+                --with-registry-auth \
+                --image $LLM_IMAGE:dev \
+                --update-order stop-first \
+                $LLM_SERVICE \
+              || \
+              docker service create \
+                --name $LLM_SERVICE \
+                --with-registry-auth \
+                --publish 5003:5003 \
+                --replicas 2 \
+                $LLM_IMAGE:dev \
+            "
 
       #######################################################
-      # ingestion은 자동 배포에서 제외
-      # - 이유: ingestion은 크로마 데이터, 디스크 여유 등 민감
-      # - 수동 업데이트 명령 (매니저에서 직접 치면 됨):
+      # ingestion 자동 배포는 이제 안 건드림
+      # 이유:
+      #   - ingestion은 워커 노드 디스크 빡셈
+      #   - 크로마 볼륨 등 민감해서 실패 시 전체 배포가 실패로 끝남
+      #
+      # 수동 업데이트 하고 싶을 때 (매니저 노드에서 직접 실행):
+      #
       #   docker service update \
       #     --with-registry-auth \
       #     --constraint-add 'node.hostname==ip-172-31-46-130' \
       #     --force \
       #     rag_ingestion
+      #
+      # 위 명령은 ingestion을 워커 노드에서만 돌리게 유지하면서
+      # 최신 ghcr.io/career-hy/ingestion:dev 이미지를 강제로 재배포해.
       #######################################################
 
       #######################################################
-      # 상태 체크 (debug용)
+      # 상태 점검
       #######################################################
       - name: Check Swarm status
         env:
-          HOST: ${{ secrets.EC2_HOST_A }}
+          HOST_A: ${{ secrets.EC2_HOST_A }}
           USER: ${{ secrets.EC2_USER }}
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/ci_key ${USER}@${HOST} "\
+            -i ~/.ssh/ci_key ${USER}@${HOST_A} "\
               echo '=== service ls ===' && \
               docker service ls && echo && \
               echo '=== node ls ===' && \
@@ -231,6 +257,6 @@ jobs:
               docker service ps $BACKEND_SERVICE --no-trunc && echo && \
               echo '=== rag_llm-service ps ===' && \
               docker service ps $LLM_SERVICE --no-trunc && echo && \
-              echo '=== rag_ingestion ps (not auto-deployed) ===' && \
+              echo '=== rag_ingestion ps (manual deploy) ===' && \
               docker service ps $INGEST_SERVICE --no-trunc \
             "
