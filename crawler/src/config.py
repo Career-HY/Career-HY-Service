@@ -18,7 +18,6 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-northeast-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "career-hi")
 
 # 크롤링 설정
-# 주의: CRAWL_SCHEDULE_HOUR/MINUTE은 scheduler.py에서 직접 환경변수를 읽음
 CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
 CRAWL_MODE = os.getenv("CRAWL_MODE", "daily")  # 'test', 'daily', 'initial'
 
