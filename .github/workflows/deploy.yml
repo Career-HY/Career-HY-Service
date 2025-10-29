@@ -15,12 +15,12 @@ env:
   BACKEND_IMAGE: ghcr.io/career-hy/backend
   LLM_IMAGE: ghcr.io/career-hy/llm-service
   INGEST_IMAGE: ghcr.io/career-hy/ingestion
-  CRAWLER_IMAGE: ghcr.io/career-hy/crawler
+  # CRAWLER_IMAGE: ghcr.io/career-hy/crawler   # <- 지금은 안 씀
 
   BACKEND_SERVICE: rag_backend
   LLM_SERVICE: rag_llm-service
   INGEST_SERVICE: rag_ingestion
-  # rag_crawler는 스웜 외부에서 별도 운영, 자동 배포 안 함
+  # rag_crawler는 스웜 외부에서 돌리므로 자동 배포 안 함
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -49,10 +49,11 @@ jobs:
             dockerfile: ./ingestion/Dockerfile
             image: ghcr.io/career-hy/ingestion
 
-          - name: crawler
-            context: ./crawler
-            dockerfile: ./crawler/Dockerfile
-            image: ghcr.io/career-hy/crawler
+        # ❌ crawler 삭제했음
+        # - name: crawler
+        #   context: ./crawler
+        #   dockerfile: ./crawler/Dockerfile
+        #   image: ghcr.io/career-hy/crawler
 
     steps:
       - name: Checkout
@@ -222,21 +223,17 @@ jobs:
             "
 
       #######################################################
-      # ingestion 자동 배포는 이제 안 건드림
+      # ingestion 자동 배포는 안 건드림
       # 이유:
-      #   - ingestion은 워커 노드 디스크 빡셈
-      #   - 크로마 볼륨 등 민감해서 실패 시 전체 배포가 실패로 끝남
+      #   - ingestion은 디스크 빡빡하고 볼륨(chroma_data) 민감함
+      #   - 실패하면 전체 파이프라인이 빨간불 나니까 지금은 수동만
       #
-      # 수동 업데이트 하고 싶을 때 (매니저 노드에서 직접 실행):
-      #
+      # ingestion 새 이미지로 굴리고 싶을 땐 (매니저 노드에서 수동):
       #   docker service update \
       #     --with-registry-auth \
       #     --constraint-add 'node.hostname==ip-172-31-46-130' \
       #     --force \
       #     rag_ingestion
-      #
-      # 위 명령은 ingestion을 워커 노드에서만 돌리게 유지하면서
-      # 최신 ghcr.io/career-hy/ingestion:dev 이미지를 강제로 재배포해.
       #######################################################
 
       #######################################################
