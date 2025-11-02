@@ -25,8 +25,8 @@ numpy
 langchain-community==0.0.38
 # langchain-teddynote  # 주석처리: 복잡한 의존성으로 인한 빌드 문제
 
-# 벡터 DB (Chroma)
-chromadb
+# 벡터 DB (Chroma) - 버전 고정으로 telemetry 호환성 보장
+chromadb==0.4.22
 
 # 진행률 표시
 tqdm
