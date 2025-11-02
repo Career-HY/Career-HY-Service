@@ -1,4 +1,8 @@
 # vector DB 관련 기능 (저장/ 검색 등)
+import os
+# ChromaDB telemetry 비활성화 (버전 호환성 문제 해결)
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
 import chromadb
 from typing import List, Dict, Any
 from chromadb.utils import embedding_functions
