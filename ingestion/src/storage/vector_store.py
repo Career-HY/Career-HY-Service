@@ -1,11 +1,21 @@
 # vector DB 관련 기능 (저장/ 검색 등)
 import os
-# ChromaDB telemetry 비활성화 (버전 호환성 문제 해결)
+import sys
+
+# ChromaDB telemetry 완전 비활성화 (import 전에 설정 필수)
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY_IMPL"] = "chromadb.telemetry.product.posthog.Posthog"
+
 
 import chromadb
 from typing import List, Dict, Any
 from chromadb.utils import embedding_functions
+
+# ChromaDB 텔레메트리 강제 비활성화
+try:
+    chromadb.telemetry.product.posthog.Posthog.capture = lambda *args, **kwargs: None
+except:
+    pass
 
 # from langchain_teddynote import logging
 # logging.langsmith("chroma_store")  # 주석처리: langchain-teddynote 의존성 제거
