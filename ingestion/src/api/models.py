@@ -6,25 +6,25 @@ from typing import List, Optional
 
 class CourseInfo(BaseModel):
     course_name: str
-    core_competency: str
-    course_overview: str
-    course_objectives: str
-    week1_plan: str
-    week2_plan: str
-    week3_plan: str
-    week4_plan: str
-    week5_plan: str
-    week6_plan: str
-    week7_plan: str
-    week8_plan: str
-    week9_plan: str
-    week10_plan: str
-    week11_plan: str
-    week12_plan: str
-    week13_plan: str
-    week14_plan: str
-    week15_plan: str
-    week16_plan: str
+    core_competency: Optional[str] = ""
+    course_overview: Optional[str] = ""
+    course_objectives: Optional[str] = ""
+    week1_plan: Optional[str] = ""
+    week2_plan: Optional[str] = ""
+    week3_plan: Optional[str] = ""
+    week4_plan: Optional[str] = ""
+    week5_plan: Optional[str] = ""
+    week6_plan: Optional[str] = ""
+    week7_plan: Optional[str] = ""
+    week8_plan: Optional[str] = ""
+    week9_plan: Optional[str] = ""
+    week10_plan: Optional[str] = ""
+    week11_plan: Optional[str] = ""
+    week12_plan: Optional[str] = ""
+    week13_plan: Optional[str] = ""
+    week14_plan: Optional[str] = ""
+    week15_plan: Optional[str] = ""
+    week16_plan: Optional[str] = ""
 
 
 class JobPosting(BaseModel):
