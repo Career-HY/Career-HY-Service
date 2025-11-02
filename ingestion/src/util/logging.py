@@ -55,19 +55,13 @@ def log_api_call(func: Callable) -> Callable:
 
             # 에러 로깅 (traceback 포함)
             import traceback
-            error_traceback = traceback.format_exc()
 
-            logger.error(
-                f"API 호출 실패: {func.__name__}",
-                extra={
-                    "event": "api_call_error",
-                    "function": func.__name__,
-                    "error": str(e),
-                    "execution_time": round(execution_time, 3),
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            )
-            logger.error(f"상세 에러:\n{error_traceback}")
+            logger.error(f"API 호출 실패: {func.__name__}")
+            logger.error(f"에러 타입: {type(e).__name__}")
+            logger.error(f"에러 메시지: {str(e)}")
+            logger.error(f"실행 시간: {round(execution_time, 3)}초")
+            logger.error("=== Traceback ===")
+            logger.error(traceback.format_exc())
 
             # 요청 인자 로깅 (디버깅용)
             if args:
