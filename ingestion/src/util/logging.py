@@ -53,7 +53,10 @@ def log_api_call(func: Callable) -> Callable:
         except Exception as e:
             execution_time = time.time() - start_time
 
-            # 에러 로깅
+            # 에러 로깅 (traceback 포함)
+            import traceback
+            error_traceback = traceback.format_exc()
+
             logger.error(
                 f"API 호출 실패: {func.__name__}",
                 extra={
@@ -64,6 +67,14 @@ def log_api_call(func: Callable) -> Callable:
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )
+            logger.error(f"상세 에러:\n{error_traceback}")
+
+            # 요청 인자 로깅 (디버깅용)
+            if args:
+                logger.error(f"요청 args: {args}")
+            if kwargs:
+                logger.error(f"요청 kwargs: {kwargs}")
+
             raise
 
     return async_wrapper
