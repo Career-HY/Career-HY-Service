@@ -6,6 +6,7 @@ import sys
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY_IMPL"] = "chromadb.telemetry.product.posthog.Posthog"
 
+
 import chromadb
 from typing import List, Dict, Any
 from chromadb.utils import embedding_functions
