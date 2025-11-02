@@ -27,6 +27,8 @@ langchain-community==0.0.38
 
 # 벡터 DB (Chroma) - 버전 고정으로 telemetry 호환성 보장
 chromadb==0.4.22
+# PostHog 버전 고정 - ChromaDB 0.4.22와 호환성 문제 해결 (posthog>=6.0.0에서 capture() 시그니처 변경)
+posthog==4.8.0
 
 # 진행률 표시
 tqdm
