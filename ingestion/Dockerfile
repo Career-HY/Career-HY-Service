@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 # 5) 소스 복사
 COPY src/ .
 
-# 6) 실행
+# 6) ChromaDB telemetry 비활성화 (버전 호환성 문제 해결)
+ENV ANONYMIZED_TELEMETRY=False
+
+# 7) 실행
 EXPOSE 5002
 CMD ["uvicorn", "ingestion:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]

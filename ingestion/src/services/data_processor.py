@@ -723,8 +723,15 @@ class DataProcessor:
                     if pdf_paths:
                         self.s3_loader.cleanup_temp_files(pdf_paths)
 
-                    # 변수 명시적 삭제
-                    del pdf_paths, downloaded_pdf_paths, json_data_list, json_dict
+                    # 변수 명시적 삭제 (존재하는 경우만 삭제)
+                    if 'pdf_paths' in locals():
+                        del pdf_paths
+                    if 'downloaded_pdf_paths' in locals():
+                        del downloaded_pdf_paths
+                    if 'json_data_list' in locals():
+                        del json_data_list
+                    if 'json_dict' in locals():
+                        del json_dict
                     if 'pdf_documents' in locals():
                         del pdf_documents, pdf_metadatas, pdf_ids
                     if 'batch_embeddings' in locals():
