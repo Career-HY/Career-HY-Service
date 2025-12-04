@@ -74,10 +74,33 @@ class DataProcessor:
 
             logger.info(f"📋 {len(json_dict)}개의 JSON 레코드 인덱싱 완료")
 
-            # 4. PDF 텍스트 추출 및 JSON 메타데이터 매칭
-            logger.info("🔍 PDF 텍스트 추출 및 JSON 메타데이터 매칭 중...")
-            pdf_documents = []
-            pdf_metadatas = []
+            # 4. StructuredDocumentLoader 사용 여부에 따라 처리 방식 분기
+            if self.use_structured_loader and self.structured_loader:
+                # Experiment 전략: StructuredDocumentLoader 사용
+                return self._process_s3_data_with_structured_loader(
+                    pdf_paths, json_dict
+                )
+            else:
+                # 기존 방식: PyMuPDF 사용
+                return self._process_s3_data_legacy(pdf_paths, json_dict)
+
+    def _process_s3_data_legacy(
+        self, pdf_paths: List[Path], json_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        기존 방식: PyMuPDF를 사용한 전체 문서 단위 처리
+        
+        Args:
+            pdf_paths: PDF 파일 경로 리스트
+            json_dict: JSON 메타데이터 딕셔너리
+            
+        Returns:
+            처리 결과 요약
+        """
+        # 4. PDF 텍스트 추출 및 JSON 메타데이터 매칭
+        logger.info("🔍 PDF 텍스트 추출 및 JSON 메타데이터 매칭 중... (기존 방식)")
+        pdf_documents = []
+        pdf_metadatas = []
 
             for pdf_path in pdf_paths:
                 try:
@@ -250,10 +273,173 @@ class DataProcessor:
                 "total_documents_stored": 0,
             }
 
-        finally:
-            # 임시 파일 정리
-            if pdf_paths:
-                self.s3_loader.cleanup_temp_files(pdf_paths)
+    def _process_s3_data_with_structured_loader(
+        self, pdf_paths: List[Path], json_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Experiment 전략: StructuredDocumentLoader를 사용한 청크 단위 처리
+        
+        Args:
+            pdf_paths: PDF 파일 경로 리스트
+            json_dict: JSON 메타데이터 딕셔너리
+            
+        Returns:
+            처리 결과 요약
+        """
+        try:
+            logger.info("🔍 StructuredDocumentLoader를 사용한 청크 단위 처리 시작...")
+            
+            # 1. 문서 리스트 생성 (StructuredDocumentLoader 형식)
+            documents = []
+            
+            for pdf_path in pdf_paths:
+                try:
+                    # PDF 텍스트 추출
+                    raw_text = extract_text_PyMuPDF(pdf_path)
+                    clean_text_result = clean_text(raw_text)
+                    
+                    if not clean_text_result.strip():
+                        continue
+                    
+                    # PDF 파일명에서 rec_idx 추출
+                    pdf_filename = pdf_path.stem
+                    if "_" in pdf_filename:
+                        rec_idx = pdf_filename.split("_")[-1]
+                    else:
+                        rec_idx = pdf_filename
+                    
+                    # JSON 메타데이터 찾기
+                    json_metadata = json_dict.get(rec_idx, {})
+                    
+                    # StructuredDocumentLoader 형식으로 문서 생성
+                    doc_item = {
+                        "text": clean_text_result,
+                        "metadata": {
+                            "source": "pdf",
+                            "filename": pdf_path.name,
+                            "document_type": "recruitment_pdf_with_json" if json_metadata else "recruitment_pdf_only",
+                            "rec_idx": rec_idx,
+                            **json_metadata,  # 원본 JSON 메타데이터 전체 포함
+                        }
+                    }
+                    
+                    documents.append(doc_item)
+                    logger.debug(f"✅ 문서 추가: {rec_idx}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
+                    continue
+            
+            if not documents:
+                logger.warning("⚠️ 처리할 문서가 없습니다.")
+                return {
+                    "success": False,
+                    "error": "No documents to process",
+                    "pdf_files_processed": len(pdf_paths),
+                    "json_records_processed": len(json_dict),
+                    "total_chunks_stored": 0,
+                }
+            
+            # 2. StructuredDocumentLoader로 청크 생성
+            logger.info(f"📦 {len(documents)}개 문서에서 청크 생성 중...")
+            chunks = self.structured_loader.load_from_documents(documents)
+            
+            if not chunks:
+                logger.warning("⚠️ 생성된 청크가 없습니다.")
+                return {
+                    "success": False,
+                    "error": "No chunks generated",
+                    "pdf_files_processed": len(pdf_paths),
+                    "json_records_processed": len(json_dict),
+                    "total_chunks_stored": 0,
+                }
+            
+            # 3. 청크별 임베딩 생성 및 저장
+            logger.info(f"🔮 {len(chunks)}개 청크의 임베딩 생성 중...")
+            chunk_texts = [chunk.text for chunk in chunks]
+            chunk_metadatas = [chunk.metadata for chunk in chunks]
+            chunk_ids = [chunk.metadata.get("chunk_id", f"chunk_{i}") for i, chunk in enumerate(chunks)]
+            
+            # 임베딩 생성 (배치 처리)
+            batch_size = 50
+            all_embeddings = []
+            
+            for i in range(0, len(chunk_texts), batch_size):
+                batch_texts = chunk_texts[i : i + batch_size]
+                batch_num = (i // batch_size) + 1
+                total_batches = (len(chunk_texts) + batch_size - 1) // batch_size
+                
+                logger.info(f"📊 임베딩 배치 {batch_num}/{total_batches} 처리 중... ({len(batch_texts)}개 청크)")
+                
+                try:
+                    batch_embeddings = self.embedder.embed(batch_texts)
+                    all_embeddings.extend(batch_embeddings)
+                    logger.info(f"✅ 임베딩 배치 {batch_num}/{total_batches} 완료")
+                except Exception as e:
+                    logger.error(f"❌ 임베딩 배치 {batch_num} 처리 실패: {e}")
+                    continue
+            
+            if len(all_embeddings) != len(chunk_texts):
+                logger.warning(f"⚠️ 임베딩 개수 불일치: 청크 {len(chunk_texts)}개, 임베딩 {len(all_embeddings)}개")
+                valid_count = len(all_embeddings)
+                chunk_texts = chunk_texts[:valid_count]
+                chunk_metadatas = chunk_metadatas[:valid_count]
+                chunk_ids = chunk_ids[:valid_count]
+            
+            # 4. ChromaDB에 청크 단위 저장
+            logger.info(f"💾 {len(chunk_texts)}개 청크를 ChromaDB에 저장 중...")
+            chroma_batch_size = 100
+            
+            for i in range(0, len(chunk_texts), chroma_batch_size):
+                batch_texts = chunk_texts[i : i + chroma_batch_size]
+                batch_embeddings = all_embeddings[i : i + chroma_batch_size]
+                batch_ids = chunk_ids[i : i + chroma_batch_size]
+                batch_metadatas = chunk_metadatas[i : i + chroma_batch_size]
+                
+                batch_num = (i // chroma_batch_size) + 1
+                total_batches = (len(chunk_texts) + chroma_batch_size - 1) // chroma_batch_size
+                
+                logger.info(f"💾 ChromaDB 저장 배치 {batch_num}/{total_batches} 처리 중...")
+                
+                try:
+                    store_to_chroma(
+                        texts=batch_texts,
+                        embeddings=batch_embeddings,
+                        ids=batch_ids,
+                        metadatas=batch_metadatas,
+                        persist_dir=self.persist_dir,
+                    )
+                    logger.info(f"✅ ChromaDB 저장 배치 {batch_num}/{total_batches} 완료")
+                except Exception as e:
+                    logger.error(f"❌ ChromaDB 저장 배치 {batch_num} 실패: {e}")
+                    continue
+            
+            logger.info("✅ 벡터 데이터베이스 저장 완료!")
+            
+            # 처리 결과 요약
+            result = {
+                "success": True,
+                "pdf_files_processed": len(pdf_paths),
+                "json_records_processed": len(json_dict),
+                "total_documents": len(documents),
+                "total_chunks_stored": len(chunk_texts),
+                "chunks_per_document_avg": len(chunk_texts) / len(documents) if documents else 0,
+            }
+            
+            logger.info(f"🎉 데이터 처리 완료: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ StructuredDocumentLoader 처리 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": str(e),
+                "pdf_files_processed": len(pdf_paths),
+                "json_records_processed": len(json_dict),
+                "total_chunks_stored": 0,
+            }
 
     def check_vector_store_status(self) -> Dict[str, Any]:
         """벡터 저장소 상태를 확인합니다."""
