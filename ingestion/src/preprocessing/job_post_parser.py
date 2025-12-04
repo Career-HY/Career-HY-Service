@@ -33,3 +33,35 @@ class JobPostParser:
 
         self.strategy = strategy
         logger.info(f"JobPostParser initialized with strategy: {strategy}")
+    
+    def _parse_with_unstructured(self, pdf_path: Path) -> Optional[list]:
+        """
+        unstructured 라이브러리를 사용하여 PDF를 파싱합니다.
+        
+        Args:
+            pdf_path: PDF 파일 경로
+            
+        Returns:
+            unstructured elements 리스트 또는 None (실패 시)
+        """
+        try:
+            from unstructured.partition.pdf import partition_pdf
+            
+            logger.debug(f"Parsing PDF with unstructured: {pdf_path.name}")
+            
+            # unstructured로 PDF 파싱
+            elements = partition_pdf(
+                filename=str(pdf_path),
+                strategy=self.strategy,
+                infer_table_structure=False,  # 테이블 구조 추론 비활성화 (속도 향상)
+            )
+            
+            logger.info(f"✅ Successfully parsed PDF: {pdf_path.name} ({len(elements)} elements)")
+            return elements
+            
+        except ImportError:
+            logger.error("❌ unstructured library not installed")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Failed to parse PDF with unstructured: {pdf_path.name} - {e}")
+            return None
