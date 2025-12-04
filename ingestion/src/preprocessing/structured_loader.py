@@ -289,6 +289,22 @@ class StructuredDocumentLoader:
                 chunks.append(Chunk(text=chunk_text, metadata=chunk_metadata))
             return chunks
 
+    def get_section_chunks(self, section_type: str) -> List[Chunk]:
+        """
+        특정 섹션 타입의 청크만 필터링
+
+        Args:
+            section_type: "preferred", "qualifications", "job_duties"
+
+        Returns:
+            필터링된 청크 리스트
+        """
+        return [
+            chunk
+            for chunk in self.chunks
+            if chunk.metadata.get("section_type") == section_type
+        ]
+
     def load_from_documents(
         self, documents: List[Dict[str, Any]], limit: Optional[int] = None
     ) -> List[Chunk]:
