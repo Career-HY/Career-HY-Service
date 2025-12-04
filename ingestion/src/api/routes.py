@@ -73,22 +73,36 @@ async def retrieve_documents(request: RetrievalRequest) -> RetrievalResponse:
             metadatas = results["metadatas"][0]
             distances = results.get("distances", [[]])[0]
 
+            # 같은 rec_idx의 여러 청크를 그룹화 (선택사항)
+            # 현재는 각 청크를 개별적으로 반환하지만, 필요시 그룹화 로직 추가 가능
+            rec_idx_groups = {}
+            
             for idx, (doc, metadata) in enumerate(zip(documents, metadatas)):
                 # 유사도 점수 계산
                 distance = distances[idx] if idx < len(distances) else None
                 similarity = round(1.0 - distance, 4) if distance is not None else None
 
+                rec_idx = metadata.get("rec_idx")
+                
                 job_posting = JobPosting(
-                    rec_idx=metadata.get("rec_idx"),
+                    rec_idx=rec_idx,
                     title=metadata.get("post_title", "제목 없음"),
                     url=metadata.get("detail_url", ""),
                     deadline=metadata.get("deadline", "미정"),
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
-                    similarity_score=similarity,  # 🆕 유사도 점수 추가
+                    similarity_score=similarity,
+                    section_type=metadata.get("section_type"),  # 🆕 섹션 정보 추가
+                    chunk_id=metadata.get("chunk_id"),  # 🆕 청크 ID 추가
                 )
                 job_postings.append(job_posting)
+                
+                # 그룹화를 위한 인덱싱 (선택사항 - 향후 사용 가능)
+                if rec_idx:
+                    if rec_idx not in rec_idx_groups:
+                        rec_idx_groups[rec_idx] = []
+                    rec_idx_groups[rec_idx].append(job_posting)
 
         return RetrievalResponse(results=job_postings)
 
@@ -184,7 +198,9 @@ async def vector_search_test(request: VectorSearchRequest) -> VectorSearchRespon
                     start_date=metadata.get("start_date"),
                     crawling_time=metadata.get("crawling_time"),
                     content=doc,
-                    similarity_score=similarity,  # 🆕 유사도 점수 추가
+                    similarity_score=similarity,
+                    section_type=metadata.get("section_type"),  # 🆕 섹션 정보 추가
+                    chunk_id=metadata.get("chunk_id"),  # 🆕 청크 ID 추가
                 )
                 job_postings.append(job_posting)
 

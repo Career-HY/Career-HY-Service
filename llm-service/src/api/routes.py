@@ -5,6 +5,7 @@ from src.services.llm_prompting import LLMPromptingService, IntentType
 from src.config.config import settings
 from src.services.ingestion_client import IngestionClient
 import logging
+import httpx
 
 router = APIRouter()
 
@@ -83,8 +84,30 @@ async def generate_llm_response(request: LLMRequest):
         # 2) 의도에 따라 문서 검색 여부 결정
         # --------------------------------------------------
         if intent == IntentType.SEARCH_NEEDED:
-            ingestion_client = IngestionClient()
-            relevant_docs = await ingestion_client.retrieve_documents(profile_with_query)
+            ingestion_url = settings.INGESTION_SERVICE_URL
+            try:
+                ingestion_client = IngestionClient()
+                logger.info(f"🔍 Ingestion 서비스 연결 시도: {ingestion_url}")
+                relevant_docs = await ingestion_client.retrieve_documents(profile_with_query)
+                logger.info(f"✅ 문서 검색 완료: {len(relevant_docs)}개 문서 발견")
+            except httpx.ConnectTimeout as e:
+                logger.error(f"⏱️ Ingestion 서비스 연결 타임아웃: {ingestion_url}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Ingestion 서비스에 연결할 수 없습니다. (타임아웃) URL: {ingestion_url}"
+                )
+            except httpx.ConnectError as e:
+                logger.error(f"🔌 Ingestion 서비스 연결 실패: {ingestion_url}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Ingestion 서비스에 연결할 수 없습니다. URL: {ingestion_url}"
+                )
+            except httpx.HTTPStatusError as e:
+                logger.error(f"❌ Ingestion 서비스 HTTP 에러: {e.response.status_code} - {e.response.text}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Ingestion 서비스 오류: {e.response.status_code} - {str(e)}"
+                )
         else:
             relevant_docs = []
 
@@ -102,7 +125,14 @@ async def generate_llm_response(request: LLMRequest):
         logger.info("✅ LLM 응답 생성 완료 | recommended_jobs=%s", len(response.recommended_jobs))
         return response
     
+    except HTTPException:
+        # HTTPException은 그대로 재발생
+        raise
     except Exception as e:
-        logger.error("💥 LLM 응답 생성 실패: %s", str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e) if str(e) else f"{type(e).__name__}: {repr(e)}"
+        logger.error("💥 LLM 응답 생성 실패: %s", error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM 응답 생성 중 오류가 발생했습니다: {error_msg}"
+        )
 
