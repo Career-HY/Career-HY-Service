@@ -16,34 +16,16 @@ logger = logging.getLogger(__name__)
 
 class Chunk:
     """
-    청크 데이터 클래스
-    text + metadata로 구성
-    metadata는 ChromaDB 저장용으로 설계됨
-
-    원본 메타데이터 필드 보존:
-    - deadline, start_date, crawling_time 등 원본 S3 JSON 메타데이터 전체 포함
+    청크 데이터 클래스 (text + metadata)
+    - metadata: ChromaDB 저장용(PGVector/ChromaDB 등)으로 사용
+    - 원본 S3 JSON의 전체 필드(deadline, start_date, crawling_time 등 포함)는
+      청크별 메타데이터 생성 시(_create_chunks_from_parsed)에서 합쳐서 넣어줌
+    - 여기서는 실제로 해당 딕셔너리 전체가 들어와도 primitive 타입(str/int/float/bool/None)만 보존
     """
 
     def __init__(self, text: str, metadata: Dict[str, Any]):
-        """
-        Args:
-            text: 청크 텍스트 (섹션 내용)
-            metadata: ChromaDB 저장용 메타데이터
-                - chunk_id (str): 고유 ID
-                - rec_idx (str): 문서 ID
-                - company (str): 회사명
-                - title (str): 직무명
-                - url (str): 상세 URL
-                - section_type (str): 섹션 타입
-                - section_length (int): 섹션 길이
-                - tags (list): 태그 리스트
-                - deadline (str): 마감일 (원본 메타데이터)
-                - start_date (str): 모집 시작일 (원본 메타데이터)
-                - crawling_time (str): 크롤링 시간 (원본 메타데이터)
-                - 기타 원본 메타데이터 필드 전체 포함
-        """
         self.text = text
-        # 원본 메타데이터 전체 보존 (primitive 타입만)
+        # primitive 타입 메타데이터 필드만 따로 추림 (embedding DB schema 호환)
         self.metadata = {
             key: value
             for key, value in metadata.items()
@@ -51,7 +33,7 @@ class Chunk:
         }
 
     def to_dict(self) -> Dict[str, Any]:
-        """딕셔너리 변환"""
+        """dict로 변환 (embedding 저장용)"""
         return {"text": self.text, "metadata": self.metadata}
 
     def __repr__(self):
@@ -60,16 +42,13 @@ class Chunk:
 
 class StructuredDocumentLoader:
     """
-    JobPostParser를 활용한 구조화 문서 로더
+    JobPostParser 기반 구조화 문서 로더
 
-    특징:
-    - 섹션별 청크 생성 (preferred, qualifications, job_duties)
-    - ChromaDB 호환 메타데이터 자동 생성
-    - 태그는 문서 레벨에서 추출 (모든 청크에 공유)
-    - benefits, hiring_process, notes는 제외
+    - 섹션별 청크 생성(preferred/qualification/job_duties)
+    - ChromaDB용 메타데이터 생성 구조에서 S3 원본 JSON 전체 dict까지 metadata에 포함시킴
+    - Chunk는 primitive 타입만 보존하니 크기 부담 없이 활용 가능
     """
 
-    # 임베딩 대상 섹션 (나머지는 제외)
     DEFAULT_TARGET_SECTIONS = ["preferred", "qualifications", "job_duties"]
 
     def __init__(
@@ -78,13 +57,6 @@ class StructuredDocumentLoader:
         target_sections: Optional[List[str]] = None,
         include_context: bool = True,
     ):
-        """
-        Args:
-            strategy: unstructured 파싱 전략 ("fast", "hi_res")
-            target_sections: 로드할 섹션 타입 리스트
-                None이면 DEFAULT_TARGET_SECTIONS 사용
-            include_context: JobPostParser의 context 주입 여부
-        """
         self.parser = JobPostParser(strategy=strategy, include_context=include_context)
         self.target_sections = target_sections or self.DEFAULT_TARGET_SECTIONS
         self.chunks: List[Chunk] = []
@@ -97,32 +69,20 @@ class StructuredDocumentLoader:
     @staticmethod
     def extract_company_and_title(text: str) -> tuple:
         """
-        캐시된 텍스트에서 회사명과 직무명 추출
-
-        패턴:
-        - 회사명: "관심기업" 키워드 바로 앞 줄
-        - 직무명: "관심기업" 키워드 바로 뒤 줄
-
-        Args:
-            text: 문서 전체 텍스트
-
-        Returns:
-            (company, title) 튜플
+        문서텍스트에서 회사명/직무명 추출 (간단 룰 기반: 관심기업 패턴/없는 경우 앞 2줄)
         """
         lines = text.split("\n")
         company = "미상"
         title = "미상"
 
         try:
-            # 회사명 추출: "관심기업" 전까지의 첫 번째 의미있는 줄
             for i, line in enumerate(lines):
                 line = line.strip()
                 if not line or "---" in line or "Page" in line:
                     continue
 
-                # "관심기업" 키워드를 찾으면 그 전 줄이 회사명
                 if "관심기업" in line:
-                    # 이전 줄들 중 의미있는 줄 찾기
+                    # 위쪽으로 회사명 추출
                     for j in range(i - 1, -1, -1):
                         prev_line = lines[j].strip()
                         if (
@@ -132,16 +92,13 @@ class StructuredDocumentLoader:
                         ):
                             company = prev_line
                             break
-
-                    # 직무명: "관심기업" 다음 의미있는 줄
+                    # 아래쪽으로 직무 타이틀 추출
                     for j in range(i + 1, min(i + 5, len(lines))):
                         next_line = lines[j].strip()
-                        if next_line and len(next_line) > 5:  # 충분히 긴 줄
+                        if next_line and len(next_line) > 5:
                             title = next_line
                             break
                     break
-
-            # "관심기업" 키워드가 없는 경우, 처음 나오는 의미있는 2개 줄
             if company == "미상":
                 meaningful_lines = []
                 for line in lines:
@@ -155,13 +112,76 @@ class StructuredDocumentLoader:
                         meaningful_lines.append(line)
                         if len(meaningful_lines) >= 2:
                             break
-
                 if len(meaningful_lines) >= 1:
                     company = meaningful_lines[0]
                 if len(meaningful_lines) >= 2:
                     title = meaningful_lines[1]
-
         except Exception as e:
             logger.warning(f"    ⚠️ 회사/직무 추출 실패: {e}")
 
         return company, title
+
+    def _create_chunks_from_parsed(
+        self,
+        parsed_chunks: List[Dict[str, Any]],
+        base_metadata: Dict[str, Any],
+        raw_text: str = "",
+    ) -> List[Chunk]:
+        """
+        JobPostParser 결과를 Chunk 객체로 변환.
+        - S3 메타데이터(원본 전체 dict)는 base_metadata로 합쳐서 embedding에 쓸 수 있게 chunk_metadata에 미리 통합
+        - 각 chunk 생성시 Chunk()로 전달 (init에서 primitive만 추려 유지)
+        """
+        doc_tags = []
+        if parsed_chunks:
+            doc_tags = parsed_chunks[0].get("metadata", {}).get("tags", [])
+        chunks = []
+        from collections import defaultdict
+        section_counters = defaultdict(int)
+
+        for parsed_chunk in parsed_chunks:
+            section_type = parsed_chunk.get("metadata", {}).get(
+                "section_type", "unknown"
+            )
+            if section_type not in self.target_sections:
+                continue
+            text = parsed_chunk.get("text", "")
+            if not text or len(text.strip()) < 10:
+                continue
+
+            chunk_idx = section_counters[section_type]
+            section_counters[section_type] += 1
+            chunk_id = f"{base_metadata['rec_idx']}_{section_type}_{chunk_idx}"
+
+            chunk_metadata = {
+                **base_metadata,
+                "chunk_id": chunk_id,
+                "rec_idx": base_metadata["rec_idx"],
+                "company": base_metadata.get("company") or base_metadata.get("company_name"),
+                "title": base_metadata.get("title") or base_metadata.get("post_title"),
+                "url": base_metadata.get("url") or base_metadata.get("detail_url"),
+                "section_type": section_type,
+                "section_length": len(text),
+                "tags": doc_tags,
+                "deadline": base_metadata.get("deadline"),
+                "start_date": base_metadata.get("start_date"),
+                "crawling_time": base_metadata.get("crawling_time"),
+            }
+            chunks.append(Chunk(text=text, metadata=chunk_metadata))
+
+        if not chunks and raw_text:
+            fallback_chunks = self._create_fallback_chunk(
+                raw_text=raw_text, base_metadata=base_metadata, tags=doc_tags
+            )
+            chunks.extend(fallback_chunks)
+
+            if len(fallback_chunks) == 1 and fallback_chunks[0].metadata.get(
+                "is_lightweight"
+            ):
+                logger.info(f"   💡 경량 컨텍스트 생성: {base_metadata['rec_idx']}")
+            else:
+                logger.info(
+                    f"   ✂️  Fallback 청킹 ({len(fallback_chunks)}개): {base_metadata['rec_idx']}"
+                )
+
+        return chunks
