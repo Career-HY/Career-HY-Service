@@ -82,7 +82,22 @@ class DataProcessor:
                 )
             else:
                 # 기존 방식: PyMuPDF 사용
-                return self._process_s3_data_legacy(pdf_paths, json_dict)
+                return self._process_s3_data_legacy(pdf_paths, json_dict, json_data)
+            
+        except Exception as e:
+            logger.error(f"❌ 데이터 처리 중 오류 발생: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "pdf_files_processed": 0,
+                "json_records_processed": 0,
+                "total_documents_stored": 0,
+            }
+            
+        finally:
+            # 임시 파일 정리
+            if pdf_paths:
+                self.s3_loader.cleanup_temp_files(pdf_paths)
 
     def _process_s3_data_legacy(
         self, pdf_paths: List[Path], json_dict: Dict[str, Any]
@@ -102,7 +117,7 @@ class DataProcessor:
         pdf_documents = []
         pdf_metadatas = []
 
-            for pdf_path in pdf_paths:
+        for pdf_path in pdf_paths:
                 try:
                     # 텍스트 추출
                     raw_text = extract_text_PyMuPDF(pdf_path)
