@@ -18,16 +18,25 @@ class JobPostParser:
     PDF 형태 채용공고를 주어진 전략에 따라 섹션별로 파싱합니다.
     """
 
-    def __init__(self, strategy: str = "fast"):
+    def __init__(
+        self,
+        strategy: str = "fast",
+        include_context: bool = True,
+        min_section_length: int = 30,
+    ):
         """
         JobPostParser를 초기화합니다.
 
         Args:
             strategy (str): 파싱 전략 ("fast" | "hi_res")
+            include_context (bool): 각 청크에 회사명/직무명 컨텍스트 주입 여부
+            min_section_length (int): 최소 섹션 길이 (너무 짧은 섹션 제외)
         """
         if strategy not in ("fast", "hi_res"):
             raise ValueError(f"strategy must be 'fast' or 'hi_res', got '{strategy}'")
         self.strategy = strategy
+        self.include_context = include_context
+        self.min_section_length = min_section_length
 
         # 채용공고 내 주요 섹션의 탐지 키워드
         self.section_keywords = {
@@ -245,6 +254,73 @@ class JobPostParser:
         logger.debug(f"✅ {len(sections)}개 섹션 감지, {len(unique_tags)}개 태그 추출")
 
         return sections, unique_tags
+
+    def _sections_to_chunks(
+        self, sections: Dict[str, List], metadata: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        섹션을 청크로 변환
+
+        각 섹션에 대해:
+        1. 컨텍스트 주입 (회사명, 직무명)
+        2. Elements를 텍스트로 결합
+        3. 최소 길이 체크
+        4. 청크 딕셔너리 생성 (metadata 확장)
+
+        Args:
+            sections: 섹션별 elements 딕셔너리
+            metadata: 문서 메타데이터 (rec_idx, company, title, tags 포함)
+
+        Returns:
+            청크 리스트 (각 청크는 text와 metadata 포함)
+        """
+        chunks = []
+
+        # ========================================
+        # [컨텍스트 주입]
+        # ========================================
+        company = metadata.get("company", "")
+        title = metadata.get("title", "")
+
+        context = ""
+        if self.include_context and (company or title):
+            context = f"[회사: {company}] [직무: {title}]\n\n"
+
+        # 섹션별 청크 생성
+        for section_type, elements in sections.items():
+            # Elements를 텍스트로 결합
+            section_text = "\n".join(
+                [elem.text for elem in elements if elem.text and elem.text.strip()]
+            )
+
+            # 최소 길이 체크
+            if len(section_text.strip()) < self.min_section_length:
+                logger.debug(
+                    f"   ⚠️ 섹션 '{section_type}' 너무 짧음 ({len(section_text)}자), 스킵"
+                )
+                continue
+
+            # 컨텍스트 주입
+            final_text = context + section_text if context else section_text
+
+            # ========================================
+            # [청크 딕셔너리 생성]
+            # ========================================
+            chunk = {
+                "text": final_text,
+                "metadata": {
+                    **metadata,  # rec_idx, company, title, tags 포함
+                    "section_type": section_type,
+                    "section_length": len(section_text),
+                    "chunk_method": "structured_parsing",
+                    "has_context": self.include_context,
+                },
+            }
+
+            chunks.append(chunk)
+            logger.debug(f"   ✅ Chunk 생성: {section_type} ({len(section_text)}자)")
+
+        return chunks
 
     def _extract_sections(self, elements: list) -> Dict[str, str]:
         """
