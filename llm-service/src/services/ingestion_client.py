@@ -1,5 +1,7 @@
 import httpx
 from typing import List, Optional
+
+# Docker 프로덕션 환경과 동일하게 from src... 형태 사용
 from src.api.models import RetrievalRequest, JobPosting
 from src.config.config import settings
 import logging
@@ -12,23 +14,29 @@ class IngestionClient:
         self.base_url = settings.INGESTION_SERVICE_URL
         self.timeout = settings.INGESTION_REQUEST_TIMEOUT
 
-    async def retrieve_documents(
-        self, profile: RetrievalRequest
-    ) -> List[JobPosting]:
+    async def retrieve_documents(self, profile: RetrievalRequest) -> List[JobPosting]:
         """Ingestion 서비스에서 관련 문서를 검색합니다."""
-        
+
         async with httpx.AsyncClient() as client:
             # Ingestion API 호출
+            # Pydantic v2 호환성: model_dump() 우선 사용
+            if hasattr(profile, 'model_dump'):
+                profile_dict = profile.model_dump()
+            elif hasattr(profile, 'dict'):
+                profile_dict = profile.dict()
+            else:
+                profile_dict = dict(profile) if hasattr(profile, '__iter__') else {}
+            
             response = await client.post(
                 f"{self.base_url}/retrieval",
-                json=profile.dict(),
+                json=profile_dict,
                 timeout=self.timeout,
             )
             response.raise_for_status()
 
             # 응답 파싱
             response_data = response.json()
-            documents_data = response_data.get("results", []) 
+            documents_data = response_data.get("results", [])
             # Dict를 JobPosting 객체로 변환
             documents = []
             for doc_data in documents_data:
@@ -39,7 +47,7 @@ class IngestionClient:
                     deadline=doc_data.get("deadline"),
                     start_date=doc_data.get("start_date"),
                     crawling_time=doc_data.get("crawling_time"),
-                    content=doc_data.get("content", "")
+                    content=doc_data.get("content", ""),
                 )
                 documents.append(job_posting)
 
@@ -64,6 +72,8 @@ class IngestionClient:
 
     async def get_posting(self, rec_idx: str):
         async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{self.base_url}/post/{rec_idx}", timeout=self.timeout)
+            resp = await client.get(
+                f"{self.base_url}/post/{rec_idx}", timeout=self.timeout
+            )
             resp.raise_for_status()
             return resp.json()

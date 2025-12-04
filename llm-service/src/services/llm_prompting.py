@@ -441,11 +441,25 @@ class LLMPromptingService:
 
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
-            result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
-            function_args = result.dict()
+            result = await structured_llm.ainvoke(prompt)
+            
+            # result가 dict인지 Pydantic 모델인지 확인하여 처리
+            if isinstance(result, dict):
+                function_args = result
+            elif hasattr(result, 'model_dump'):
+                # Pydantic v2
+                function_args = result.model_dump()
+            elif hasattr(result, 'dict'):
+                # Pydantic v1
+                function_args = result.dict()
+            else:
+                # 기본적으로 dict로 변환 시도
+                function_args = dict(result) if hasattr(result, '__iter__') else {}
 
             # LLM structured output 결과 로깅
             logger.info(f"🤖 LLM Structured Output 결과:")
+            logger.info(f"  - function_args 타입: {type(function_args)}")
+            logger.info(f"  - function_args 키: {list(function_args.keys()) if isinstance(function_args, dict) else 'N/A'}")
             logger.info(
                 f"  - recommended_job_indices: {function_args.get('recommended_job_indices', [])}"
             )
@@ -459,21 +473,32 @@ class LLMPromptingService:
                 f"  - practical_tips 길이: {len(function_args.get('practical_tips', ''))}"
             )
 
+            # 필수 필드 확인 및 기본값 설정
+            recommended_job_indices = function_args.get('recommended_job_indices', [])
+            overall_advice = function_args.get('overall_advice', '')
+            practical_tips = function_args.get('practical_tips', '')
+            recommendation_reasons = function_args.get('recommendation_reasons', [])
+
+            # 필수 필드가 없는 경우 경고
+            if not isinstance(function_args, dict) or not function_args:
+                logger.error(f"⚠️ LLM 응답이 예상 형식이 아닙니다. function_args: {function_args}")
+                raise ValueError(f"LLM 응답 형식 오류: 예상한 구조가 아닙니다. 받은 데이터: {type(function_args)}")
+
             # 전체 응답 텍스트 생성
-            if function_args["recommended_job_indices"]:
+            if recommended_job_indices:
                 # 채용공고 추천이 있는 경우 - 제목 목록 제거, 조언과 팁만 포함
                 llm_response = f"""
-{function_args['overall_advice']}
+{overall_advice}
 
 실무 팁:
-{function_args['practical_tips']}
+{practical_tips}
 """.strip()
             else:
                 # 일반 상담/조언인 경우 (채용공고 추천 없음)
                 llm_response = f"""
-{function_args['overall_advice']}
+{overall_advice}
 
-{function_args['practical_tips']}
+{practical_tips}
 """.strip()
 
             # 추천된 채용공고 파싱
