@@ -1064,102 +1064,31 @@ class DataProcessor:
 
                     logger.info(f"📋 {len(json_dict)}개의 JSON 레코드 인덱싱 완료")
 
-                    # PDF 텍스트 추출 및 메타데이터 매칭
-                    logger.info("🔍 PDF 텍스트 추출 및 메타데이터 매칭 중...")
-                    pdf_documents = []
-                    pdf_metadatas = []
-                    pdf_ids = []
-
-                    for pdf_path in pdf_paths:
-                        try:
-                            raw_text = extract_text_PyMuPDF(pdf_path)
-                            clean_text_result = clean_text(raw_text)
-
-                            if clean_text_result.strip():
-                                pdf_filename = pdf_path.stem
-                                rec_idx = (
-                                    pdf_filename.split("_")[-1]
-                                    if "_" in pdf_filename
-                                    else pdf_filename
-                                )
-
-                                json_metadata = json_dict.get(rec_idx)
-
-                                metadata = {
-                                    "source": "pdf",
-                                    "filename": pdf_path.name,
-                                    "document_type": (
-                                        "recruitment_pdf_with_json"
-                                        if json_metadata
-                                        else "recruitment_pdf_only"
-                                    ),
-                                    "rec_idx": rec_idx,
-                                }
-
-                                if json_metadata:
-                                    for key, value in json_metadata.items():
-                                        if isinstance(value, (str, int, float, bool)):
-                                            metadata[key] = str(value)
-                                    logger.info(
-                                        f"✅ 매칭: {rec_idx} - {json_metadata.get('post_title', 'Unknown')[:30]}..."
-                                    )
-                                else:
-                                    metadata.update(
-                                        {
-                                            "post_title": "제목 없음",
-                                            "deadline": "미정",
-                                            "detail_url": "",
-                                        }
-                                    )
-
-                                pdf_documents.append(clean_text_result)
-                                pdf_metadatas.append(metadata)
-                                pdf_ids.append(rec_idx)
-
-                        except Exception as e:
-                            logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
-                            continue
-
-                    # 임베딩 생성 및 Upsert (배치 내에서는 한번에 처리)
-                    if pdf_documents:
-                        logger.info(
-                            f"🔮 임베딩 생성 중... ({len(pdf_documents)}개 문서)"
+                    # StructuredDocumentLoader 사용 여부에 따라 처리 방식 분기
+                    if self.use_structured_loader and self.structured_loader:
+                        # Experiment 전략: StructuredDocumentLoader 사용
+                        batch_result = self._process_batch_with_structured_loader(
+                            pdf_paths, json_dict, force_update, batch_num
                         )
-
-                        try:
-                            # 임베딩 생성
-                            batch_embeddings = self.embedder.embed(pdf_documents)
-
-                            # ChromaDB Upsert
-                            logger.info(f"💾 ChromaDB Upsert 중...")
-                            upsert_result = upsert_to_chroma(
-                                texts=pdf_documents,
-                                embeddings=batch_embeddings,
-                                ids=pdf_ids,
-                                metadatas=pdf_metadatas,
-                                persist_dir=self.persist_dir,
-                                force_update=force_update,
-                            )
-
-                            # 통계 누적
-                            total_added += upsert_result["added"]
-                            total_updated += upsert_result["updated"]
-                            total_skipped += upsert_result["skipped"]
-                            total_processed += len(pdf_documents)
-
-                            logger.info(
-                                f"✅ 배치 {batch_num}/{total_batches} 완료: "
-                                f"추가 {upsert_result['added']}, "
-                                f"업데이트 {upsert_result['updated']}, "
-                                f"스킵 {upsert_result['skipped']}"
-                            )
-
-                        except Exception as e:
-                            logger.error(f"❌ 배치 {batch_num} 임베딩/Upsert 실패: {e}")
-                            continue
-
                     else:
-                        logger.warning(f"⚠️  배치 {batch_num}: 처리할 문서 없음")
+                        # 기존 방식: PyMuPDF 사용
+                        batch_result = self._process_batch_legacy(
+                            pdf_paths, json_dict, force_update, batch_num
+                        )
+                    
+                    # 통계 누적
+                    if batch_result.get("success"):
+                        total_added += batch_result.get("added", 0)
+                        total_updated += batch_result.get("updated", 0)
+                        total_skipped += batch_result.get("skipped", 0)
+                        total_processed += batch_result.get("total_processed", 0)
+                        
+                        logger.info(
+                            f"✅ 배치 {batch_num}/{total_batches} 완료: "
+                            f"추가 {batch_result.get('added', 0)}, "
+                            f"업데이트 {batch_result.get('updated', 0)}, "
+                            f"스킵 {batch_result.get('skipped', 0)}"
+                        )
 
                 finally:
                     # 배치별 메모리 해제
