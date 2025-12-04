@@ -38,6 +38,8 @@ class JobPosting(BaseModel):
     crawling_time: Optional[str] = None     # 크롤링 시간
     content: str
     similarity_score: Optional[float] = None  # 유사도 점수 추가
+    section_type: Optional[str] = None      # 섹션 타입 (preferred, qualifications, job_duties 등)
+    chunk_id: Optional[str] = None          # 청크 ID
 
 
 class RetrievalRequest(BaseModel):
