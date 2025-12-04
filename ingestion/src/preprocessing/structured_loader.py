@@ -27,9 +27,8 @@ class Chunk:
         self.text = text
         # primitive 타입 메타데이터 필드만 따로 추림 (embedding DB schema 호환)
         self.metadata = {
-            key: value
-            for key, value in metadata.items()
-            if isinstance(value, (str, int, float, bool, type(None)))
+            k: v for k, v in metadata.items()
+            if isinstance(v, (str, int, float, bool, type(None)))
         }
 
     def to_dict(self) -> Dict[str, Any]:
@@ -85,11 +84,7 @@ class StructuredDocumentLoader:
                     # 위쪽으로 회사명 추출
                     for j in range(i - 1, -1, -1):
                         prev_line = lines[j].strip()
-                        if (
-                            prev_line
-                            and "---" not in prev_line
-                            and "Page" not in prev_line
-                        ):
+                        if prev_line and "---" not in prev_line and "Page" not in prev_line:
                             company = prev_line
                             break
                     # 아래쪽으로 직무 타이틀 추출
@@ -100,26 +95,90 @@ class StructuredDocumentLoader:
                             break
                     break
             if company == "미상":
-                meaningful_lines = []
-                for line in lines:
-                    line = line.strip()
-                    if (
-                        line
-                        and "---" not in line
-                        and "Page" not in line
-                        and len(line) > 2
-                    ):
-                        meaningful_lines.append(line)
-                        if len(meaningful_lines) >= 2:
-                            break
-                if len(meaningful_lines) >= 1:
+                meaningful_lines = [
+                    line.strip() for line in lines
+                    if line.strip() and "---" not in line and "Page" not in line and len(line.strip()) > 2
+                ]
+                if meaningful_lines:
                     company = meaningful_lines[0]
-                if len(meaningful_lines) >= 2:
+                if len(meaningful_lines) > 1:
                     title = meaningful_lines[1]
         except Exception as e:
             logger.warning(f"    ⚠️ 회사/직무 추출 실패: {e}")
 
         return company, title
+
+    def _get_base_metadata(self, doc_metadata, raw_text, idx=0):
+        # raw_text에서 회사명과 직무명 추출 (메타데이터에 없을 때만)
+        company, title = self.extract_company_and_title(raw_text)
+        rec_id = doc_metadata.get("rec_idx", f"unknown_{idx}")
+
+        base_metadata = {
+            **doc_metadata,
+            "rec_idx": str(rec_id),
+            "title": (
+                doc_metadata.get("title")
+                or doc_metadata.get("post_title")
+                or title
+            ),
+            "company": (
+                doc_metadata.get("company")
+                or doc_metadata.get("company_name")
+                or company
+            ),
+            "url": (
+                doc_metadata.get("url")
+                or doc_metadata.get(
+                    "detail_url",
+                    f"https://www.saramin.co.kr/zf_user/jobs/relay/view?view_type=public-recruit&rec_idx={rec_id}",
+                )
+            ),
+            # 원본 필드명도 명시적으로 보존 (하위 호환성)
+            "post_title": (
+                doc_metadata.get("post_title")
+                or doc_metadata.get("title")
+                or title
+            ),
+            "company_name": (
+                doc_metadata.get("company_name")
+                or doc_metadata.get("company")
+                or company
+            ),
+            "detail_url": (
+                doc_metadata.get("detail_url")
+                or doc_metadata.get("url")
+                or ""
+            ),
+        }
+
+        # S3 JSON 메타데이터 필드명 매핑 (필요한 경우)
+        for key in ["deadline", "start_date", "crawling_time"]:
+            if key not in base_metadata or base_metadata.get(key) is None:
+                base_metadata[key] = doc_metadata.get(key)
+
+        return base_metadata
+
+    def _chunk_common_metadata(self, base_metadata, section_type, text, doc_tags, chunk_id, extra=None):
+        """
+        중복되는 chunk metadata 생성 로직 공통화
+        """
+        metadata = {
+            **base_metadata,
+            "chunk_id": chunk_id,
+            "rec_idx": base_metadata["rec_idx"],
+            "company": base_metadata.get("company") or base_metadata.get("company_name"),
+            "title": base_metadata.get("title") or base_metadata.get("post_title"),
+            "url": base_metadata.get("url") or base_metadata.get("detail_url"),
+            "section_type": section_type,
+            "section_length": len(text),
+            "tags": doc_tags,
+            "deadline": base_metadata.get("deadline"),
+            "start_date": base_metadata.get("start_date"),
+            "crawling_time": base_metadata.get("crawling_time"),
+        }
+        if extra:
+            metadata.update(extra)
+        return metadata
 
     def _create_chunks_from_parsed(
         self,
@@ -132,43 +191,25 @@ class StructuredDocumentLoader:
         - S3 메타데이터(원본 전체 dict)는 base_metadata로 합쳐서 embedding에 쓸 수 있게 chunk_metadata에 미리 통합
         - 각 chunk 생성시 Chunk()로 전달 (init에서 primitive만 추려 유지)
         """
-        doc_tags = []
-        if parsed_chunks:
-            doc_tags = parsed_chunks[0].get("metadata", {}).get("tags", [])
-        chunks = []
+        doc_tags = parsed_chunks[0].get("metadata", {}).get("tags", []) if parsed_chunks else []
         from collections import defaultdict
-
         section_counters = defaultdict(int)
+        chunks = []
 
         for parsed_chunk in parsed_chunks:
-            section_type = parsed_chunk.get("metadata", {}).get(
-                "section_type", "unknown"
-            )
+            section_type = parsed_chunk.get("metadata", {}).get("section_type", "unknown")
             if section_type not in self.target_sections:
                 continue
             text = parsed_chunk.get("text", "")
             if not text or len(text.strip()) < 10:
                 continue
-
             chunk_idx = section_counters[section_type]
             section_counters[section_type] += 1
             chunk_id = f"{base_metadata['rec_idx']}_{section_type}_{chunk_idx}"
 
-            chunk_metadata = {
-                **base_metadata,
-                "chunk_id": chunk_id,
-                "rec_idx": base_metadata["rec_idx"],
-                "company": base_metadata.get("company")
-                or base_metadata.get("company_name"),
-                "title": base_metadata.get("title") or base_metadata.get("post_title"),
-                "url": base_metadata.get("url") or base_metadata.get("detail_url"),
-                "section_type": section_type,
-                "section_length": len(text),
-                "tags": doc_tags,
-                "deadline": base_metadata.get("deadline"),
-                "start_date": base_metadata.get("start_date"),
-                "crawling_time": base_metadata.get("crawling_time"),
-            }
+            chunk_metadata = self._chunk_common_metadata(
+                base_metadata, section_type, text, doc_tags, chunk_id
+            )
             chunks.append(Chunk(text=text, metadata=chunk_metadata))
 
         if not chunks and raw_text:
@@ -176,15 +217,10 @@ class StructuredDocumentLoader:
                 raw_text=raw_text, base_metadata=base_metadata, tags=doc_tags
             )
             chunks.extend(fallback_chunks)
-
-            if len(fallback_chunks) == 1 and fallback_chunks[0].metadata.get(
-                "is_lightweight"
-            ):
+            if len(fallback_chunks) == 1 and fallback_chunks[0].metadata.get("is_lightweight"):
                 logger.info(f"   💡 경량 컨텍스트 생성: {base_metadata['rec_idx']}")
             else:
-                logger.info(
-                    f"   ✂️  Fallback 청킹 ({len(fallback_chunks)}개): {base_metadata['rec_idx']}"
-                )
+                logger.info(f"   ✂️  Fallback 청킹 ({len(fallback_chunks)}개): {base_metadata['rec_idx']}")
 
         return chunks
 
@@ -197,17 +233,7 @@ class StructuredDocumentLoader:
         하이브리드 접근:
         - 900자 이하: 경량 컨텍스트 (회사+직무+태그만)
         - 900자 초과: 400자 단위 청킹
-
-        Args:
-            raw_text: 문서 원본 텍스트
-            base_metadata: 기본 메타데이터 (rec_idx, company, title, url 포함)
-                원본 S3 JSON 메타데이터 전체 포함 (deadline, start_date, crawling_time 등)
-            tags: 문서 태그
-
-        Returns:
-            Fallback Chunk 객체 리스트
         """
-        # 전처리된 텍스트 길이 확인
         max_raw_length = 2000
         truncated_raw_text = raw_text[:max_raw_length]
 
@@ -217,38 +243,28 @@ class StructuredDocumentLoader:
             f"[직무: {base_metadata['title']}]\n\n"
             f"{truncated_raw_text}"
         )
-
         text_length = len(full_text_with_context)
 
         # 900자 이하: 경량 컨텍스트 생성
         if text_length <= 900:
-            lightweight_text = f"회사: {base_metadata['company']}\n"
-            lightweight_text += f"직무: {base_metadata['title']}\n"
-
+            lightweight_lines = [
+                f"회사: {base_metadata['company']}",
+                f"직무: {base_metadata['title']}"
+            ]
             if tags:
                 tags_str = ", ".join(tags[:5])
                 if len(tags) > 5:
                     tags_str += f" 외 {len(tags)-5}개"
-                lightweight_text += f"태그: {tags_str}"
+                lightweight_lines.append(f"태그: {tags_str}")
 
-            chunk_metadata = {
-                **base_metadata,  # 원본 S3 JSON 메타데이터 전체 포함
-                "chunk_id": f"{base_metadata['rec_idx']}_full_text_0",
-                "rec_idx": base_metadata["rec_idx"],
-                "company": base_metadata.get("company")
-                or base_metadata.get("company_name"),
-                "title": base_metadata.get("title") or base_metadata.get("post_title"),
-                "url": base_metadata.get("url") or base_metadata.get("detail_url"),
-                "section_type": "full_text",
-                "section_length": len(lightweight_text),
-                "tags": tags,
-                "is_fallback": True,
-                "is_lightweight": True,
-                # deadline, start_date, crawling_time 명시적으로 보장
-                "deadline": base_metadata.get("deadline"),
-                "start_date": base_metadata.get("start_date"),
-                "crawling_time": base_metadata.get("crawling_time"),
-            }
+            lightweight_text = "\n".join(lightweight_lines)
+            chunk_id = f"{base_metadata['rec_idx']}_full_text_0"
+            chunk_metadata = self._chunk_common_metadata(
+                base_metadata, "full_text", lightweight_text, tags, chunk_id, extra={
+                    "is_fallback": True,
+                    "is_lightweight": True,
+                }
+            )
 
             return [Chunk(text=lightweight_text, metadata=chunk_metadata)]
 
@@ -256,34 +272,111 @@ class StructuredDocumentLoader:
         else:
             chunks = []
             chunk_size = 400
-            num_chunks = (text_length + chunk_size - 1) // chunk_size  # 올림
+            num_chunks = (text_length + chunk_size - 1) // chunk_size
 
             for i in range(num_chunks):
                 start_idx = i * chunk_size
                 end_idx = min(start_idx + chunk_size, text_length)
                 chunk_text = full_text_with_context[start_idx:end_idx]
-
-                chunk_metadata = {
-                    **base_metadata,  # 원본 S3 JSON 메타데이터 전체 포함
-                    "chunk_id": f"{base_metadata['rec_idx']}_full_text_{i}",
-                    "rec_idx": base_metadata["rec_idx"],
-                    "company": base_metadata.get("company")
-                    or base_metadata.get("company_name"),
-                    "title": base_metadata.get("title")
-                    or base_metadata.get("post_title"),
-                    "url": base_metadata.get("url") or base_metadata.get("detail_url"),
-                    "section_type": "full_text",
-                    "section_length": len(chunk_text),
-                    "tags": tags,
-                    "is_fallback": True,
-                    "chunk_index": i,
-                    "total_chunks": num_chunks,
-                    # deadline, start_date, crawling_time 명시적으로 보장
-                    "deadline": base_metadata.get("deadline"),
-                    "start_date": base_metadata.get("start_date"),
-                    "crawling_time": base_metadata.get("crawling_time"),
-                }
-
+                chunk_id = f"{base_metadata['rec_idx']}_full_text_{i}"
+                chunk_metadata = self._chunk_common_metadata(
+                    base_metadata, "full_text", chunk_text, tags, chunk_id, extra={
+                        "is_fallback": True,
+                        "chunk_index": i,
+                        "total_chunks": num_chunks,
+                    }
+                )
                 chunks.append(Chunk(text=chunk_text, metadata=chunk_metadata))
-
             return chunks
+
+    def load_from_documents(
+        self, documents: List[Dict[str, Any]], limit: Optional[int] = None
+    ) -> List[Chunk]:
+        """
+        메모리에 이미 로드된 documents 리스트에서 바로 파싱 및 청크 생성
+
+        Args:
+            documents: S3DataLoader.load_documents() 형태의 리스트 (각 원소: {"text": str, "metadata": dict})
+            limit: 처리할 문서 수 제한 (None이면 전체)
+        """
+        logger.info(f"\n{'='*80}")
+        logger.info(f"📂 메모리 문서 리스트에서 구조화 파싱 시작 (JobPostParser + unstructured)")
+        logger.info(f"{'='*80}")
+
+        total_docs = len(documents)
+        process_count = limit if limit else total_docs
+
+        logger.info(f"✅ 총 문서: {total_docs}개")
+        logger.info(f"🎯 처리 대상: {process_count}개")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"📋 문서 파싱 시작 (in-memory)")
+        logger.info(f"{'='*80}\n")
+
+        self.chunks = []
+        failed_docs = []
+        docs_to_process = documents[:process_count]
+
+        for idx, doc_item in enumerate(docs_to_process):
+            try:
+                doc_metadata = doc_item.get("metadata", {})
+                raw_text = doc_item.get("text", "")
+                rec_id = doc_metadata.get("rec_idx", f"unknown_{idx}")
+
+                # base_metadata 생성 (중복 제거)
+                base_metadata = self._get_base_metadata(doc_metadata, raw_text, idx)
+
+                if idx == 0:
+                    # 첫번째 문서의 메타데이터 확인
+                    logger.info(f"\n🔍 첫 번째 문서 메타데이터 확인 (rec_idx: {rec_id}):")
+                    for key in ["deadline", "start_date", "crawling_time", "post_title", "company_name"]:
+                        logger.info(f"   - {key}: {doc_metadata.get(key)}")
+                    logger.info(f"   - 전체 메타데이터 키: {list(doc_metadata.keys())[:20]}")
+
+                # 텍스트 검증
+                if not raw_text or len(raw_text) < 50:
+                    failed_docs.append((rec_id, "텍스트 없음"))
+                    continue
+
+                # 임시 파일로 저장하여 JobPostParser 사용 (unstructured 기반)
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".txt", delete=False, encoding="utf-8"
+                ) as tmp_file:
+                    tmp_file.write(raw_text)
+                    tmp_path = tmp_file.name
+
+                parsed_chunks = self.parser.process_document(
+                    doc_path=tmp_path, original_metadata=base_metadata
+                )
+                Path(tmp_path).unlink()
+
+                doc_chunks = self._create_chunks_from_parsed(
+                    parsed_chunks, base_metadata=base_metadata, raw_text=raw_text
+                )
+                self.chunks.extend(doc_chunks)
+
+            except Exception as e:
+                error_msg = str(e)
+                import traceback
+
+                if idx < 3:  # 처음 3개만 상세 에러 출력
+                    logger.error(f"\n❌ 문서 {idx} 파싱 실패 (rec_idx: {rec_id}):")
+                    logger.error(f"   에러: {error_msg}")
+                    logger.error(f"   상세:")
+                    traceback.print_exc()
+                failed_docs.append((rec_id, error_msg))
+                continue
+
+        logger.info(f"\n{'='*80}")
+        logger.info(f"✅ in-memory 파싱 완료")
+        logger.info(f"{'='*80}")
+        logger.info(f"📊 총 청크 수: {len(self.chunks)}개")
+        logger.info(f"❌ 실패 문서: {len(failed_docs)}개")
+
+        if failed_docs:
+            logger.info(f"\n실패 문서 목록 (최대 20개):")
+            for rec_id, reason in failed_docs[:20]:
+                logger.info(f"  - {rec_id}: {reason}")
+            if len(failed_docs) > 20:
+                logger.info(f"  ... 외 {len(failed_docs) - 20}개 실패")
+
+        return self.chunks
