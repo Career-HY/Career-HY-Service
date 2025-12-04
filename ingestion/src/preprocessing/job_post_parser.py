@@ -123,6 +123,86 @@ class JobPostParser:
         }
         logger.info(f"JobPostParser initialized with strategy: {self.strategy}")
 
+    def process_document(
+        self, doc_path: str, original_metadata: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        메인 오케스트레이터: 문서 파싱 → 섹션 그룹화 → 청크 생성
+
+        Args:
+            doc_path: 문서 파일 경로 (PDF, DOCX 등)
+            original_metadata: 원본 메타데이터
+                - rec_idx (필수): 문서 고유 식별자
+                - company (필수): 회사명
+                - title (필수): 직무명
+
+        Returns:
+            청크 리스트 (각 청크는 text와 metadata 포함)
+        """
+        # 필수 필드 검증 (rec_idx 또는 rec_id 허용, 하위 호환성)
+        rec_idx = original_metadata.get("rec_idx") or original_metadata.get("rec_id")
+        if not rec_idx:
+            raise ValueError("original_metadata must contain 'rec_idx' or 'rec_id'")
+
+        required_fields = ["company", "title"]
+        for field in required_fields:
+            if field not in original_metadata:
+                raise ValueError(f"original_metadata must contain '{field}'")
+
+        # rec_idx가 없으면 rec_id를 rec_idx로 설정 (하위 호환성)
+        if "rec_idx" not in original_metadata and "rec_id" in original_metadata:
+            original_metadata["rec_idx"] = original_metadata["rec_id"]
+
+        logger.info(f"\n{'='*70}")
+        logger.info(f"📄 문서 처리: {original_metadata.get('rec_idx')}")
+        logger.info(f"   회사: {original_metadata.get('company')}")
+        logger.info(f"   직무: {original_metadata.get('title')}")
+        logger.info(f"{'='*70}")
+
+        # Step 1: 문서 파싱
+        doc_path_obj = Path(doc_path)
+        elements = self._parse_document(doc_path_obj)
+        if not elements:
+            logger.warning(f"⚠️ 문서 파싱 실패: {doc_path}")
+            return []
+
+        logger.info(f"✅ {len(elements)}개 elements 추출")
+
+        # Step 2: 섹션 그룹화 및 태그 감지
+        sections, tags = self._group_by_sections(elements)
+        logger.info(f"✅ {len(sections)}개 섹션 감지")
+        logger.info(f"✅ {len(tags)}개 태그 추출: {tags[:5]}...")  # 처음 5개만
+
+        # Step 3: 메타데이터 업데이트
+        doc_metadata = original_metadata.copy()
+        doc_metadata["tags"] = tags
+
+        # Step 4: 청크 생성 (후처리)
+        chunks = self._sections_to_chunks(sections, doc_metadata)
+        logger.info(f"✅ {len(chunks)}개 청크 생성")
+
+        return chunks
+
+    def _parse_document(self, doc_path: Path) -> Optional[List]:
+        """
+        문서 파싱: unstructured로 문서 로드
+
+        Args:
+            doc_path: 문서 파일 경로
+
+        Returns:
+            elements 리스트 또는 None
+        """
+        logger.debug(f"📥 문서 로드 중... (strategy: {self.strategy})")
+
+        # PDF 파일인지 확인
+        if doc_path.suffix.lower() == ".pdf":
+            return self._parse_with_unstructured(doc_path)
+        else:
+            # 기타 파일 형식 (TXT 등) - 현재는 PDF만 지원
+            logger.warning(f"⚠️ 지원하지 않는 파일 형식: {doc_path.suffix}")
+            return None
+
     def _parse_with_unstructured(self, pdf_path: Path) -> Optional[list]:
         """
         unstructured 라이브러리를 사용해 PDF 파일을 파싱합니다.
