@@ -879,9 +879,38 @@ class DataProcessor:
             
             # 3. 청크별 임베딩 생성
             logger.info(f"🔮 {len(chunks)}개 청크의 임베딩 생성 중...")
-            chunk_texts = [chunk.text for chunk in chunks]
-            chunk_metadatas = [chunk.metadata for chunk in chunks]
-            chunk_ids = [chunk.metadata.get("chunk_id", f"chunk_{i}") for i, chunk in enumerate(chunks)]
+            chunk_texts = []
+            chunk_metadatas = []
+            chunk_ids = []
+            
+            for chunk in chunks:
+                chunk_texts.append(chunk.text)
+                
+                # 청크 메타데이터 가져오기
+                metadata = chunk.metadata.copy()
+                
+                # 청크 ID 생성: {rec_idx}_{chunk_id} 형식 보장
+                rec_idx = metadata.get("rec_idx", "unknown")
+                chunk_id = metadata.get("chunk_id")
+                
+                if not chunk_id:
+                    # fallback: rec_idx가 없으면 인덱스 기반 생성
+                    chunk_id = f"{rec_idx}_chunk_{len(chunk_ids)}"
+                elif not chunk_id.startswith(rec_idx):
+                    # chunk_id에 rec_idx가 포함되지 않은 경우 추가
+                    chunk_id = f"{rec_idx}_{chunk_id}"
+                
+                # 메타데이터에 청크 ID 업데이트
+                metadata["chunk_id"] = chunk_id
+                
+                # 섹션 정보 메타데이터 확인 및 보강
+                if "section_type" not in metadata:
+                    metadata["section_type"] = "unknown"
+                if "section_length" not in metadata:
+                    metadata["section_length"] = len(chunk.text)
+                
+                chunk_metadatas.append(metadata)
+                chunk_ids.append(chunk_id)
             
             batch_size = 50
             all_embeddings = []
