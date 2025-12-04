@@ -595,11 +595,34 @@ class DataProcessor:
             else:
                 # 기존 방식: PyMuPDF 사용
                 return self._process_incremental_data_legacy(
-                    pdf_paths, json_dict, force_update
+                    pdf_paths, json_dict, force_update, s3_prefix, pdf_files, json_data
                 )
+        
+        except Exception as e:
+            logger.error(f"❌ 증분 데이터 처리 중 오류 발생: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "added": 0,
+                "updated": 0,
+                "skipped": 0,
+            }
+        
+        finally:
+            # 임시 파일 정리
+            if pdf_paths:
+                self.s3_loader.cleanup_temp_files(pdf_paths)
+            if "temp_dir" in locals() and temp_dir.exists():
+                import shutil
+                try:
+                    shutil.rmtree(temp_dir)
+                    logger.info(f"🧹 임시 디렉토리 정리 완료: {temp_dir}")
+                except Exception as e:
+                    logger.warning(f"⚠️ 임시 디렉토리 정리 실패: {e}")
 
     def _process_incremental_data_legacy(
-        self, pdf_paths: List[Path], json_dict: Dict[str, Any], force_update: bool
+        self, pdf_paths: List[Path], json_dict: Dict[str, Any], force_update: bool,
+        s3_prefix: str, pdf_files: List[str], json_data: List[Any]
     ) -> Dict[str, Any]:
         """
         기존 방식: PyMuPDF를 사용한 증분 업데이트
@@ -608,6 +631,9 @@ class DataProcessor:
             pdf_paths: PDF 파일 경로 리스트
             json_dict: JSON 메타데이터 딕셔너리
             force_update: 중복 시 덮어쓰기 여부
+            s3_prefix: S3 경로 prefix
+            pdf_files: PDF 파일 목록
+            json_data: JSON 데이터 목록
             
         Returns:
             처리 결과 요약
@@ -618,7 +644,7 @@ class DataProcessor:
         pdf_metadatas = []
         pdf_ids = []
 
-            for pdf_path in pdf_paths:
+        for pdf_path in pdf_paths:
                 try:
                     raw_text = extract_text_PyMuPDF(pdf_path)
                     clean_text_result = clean_text(raw_text)
@@ -669,7 +695,7 @@ class DataProcessor:
                     logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
                     continue
 
-            # 5. 임베딩 생성 및 Upsert
+        # 5. 임베딩 생성 및 Upsert
             if pdf_documents:
                 logger.info(f"💾 {len(pdf_documents)}개 문서 처리 중...")
 
@@ -1145,4 +1171,282 @@ class DataProcessor:
                 "added": 0,
                 "updated": 0,
                 "skipped": 0,
+            }
+
+    def _process_batch_legacy(
+        self,
+        pdf_paths: List[Path],
+        json_dict: Dict[str, Any],
+        force_update: bool,
+        batch_num: int,
+    ) -> Dict[str, Any]:
+        """
+        기존 방식: PyMuPDF를 사용한 배치 처리
+        
+        Args:
+            pdf_paths: PDF 파일 경로 리스트
+            json_dict: JSON 메타데이터 딕셔너리
+            force_update: 중복 시 덮어쓰기 여부
+            batch_num: 배치 번호
+            
+        Returns:
+            처리 결과 요약
+        """
+        try:
+            logger.info(f"🔍 배치 {batch_num}: PDF 텍스트 추출 및 메타데이터 매칭 중... (기존 방식)")
+            pdf_documents = []
+            pdf_metadatas = []
+            pdf_ids = []
+
+            for pdf_path in pdf_paths:
+                try:
+                    raw_text = extract_text_PyMuPDF(pdf_path)
+                    clean_text_result = clean_text(raw_text)
+
+                    if clean_text_result.strip():
+                        pdf_filename = pdf_path.stem
+                        rec_idx = (
+                            pdf_filename.split("_")[-1]
+                            if "_" in pdf_filename
+                            else pdf_filename
+                        )
+
+                        json_metadata = json_dict.get(rec_idx)
+
+                        metadata = {
+                            "source": "pdf",
+                            "filename": pdf_path.name,
+                            "document_type": (
+                                "recruitment_pdf_with_json"
+                                if json_metadata
+                                else "recruitment_pdf_only"
+                            ),
+                            "rec_idx": rec_idx,
+                        }
+
+                        if json_metadata:
+                            for key, value in json_metadata.items():
+                                if isinstance(value, (str, int, float, bool)):
+                                    metadata[key] = str(value)
+
+                        pdf_documents.append(clean_text_result)
+                        pdf_metadatas.append(metadata)
+                        pdf_ids.append(rec_idx)
+
+                except Exception as e:
+                    logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
+                    continue
+
+            if not pdf_documents:
+                logger.warning(f"⚠️ 배치 {batch_num}: 처리할 문서가 없습니다.")
+                return {
+                    "success": False,
+                    "error": "No documents to process",
+                    "added": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "total_processed": 0,
+                }
+
+            # 임베딩 생성
+            logger.info(f"🔮 배치 {batch_num}: 임베딩 생성 중... ({len(pdf_documents)}개 문서)")
+            batch_size = 50
+            all_embeddings = []
+
+            for i in range(0, len(pdf_documents), batch_size):
+                batch_docs = pdf_documents[i : i + batch_size]
+                batch_num_embed = (i // batch_size) + 1
+                total_batches = (len(pdf_documents) + batch_size - 1) // batch_size
+
+                try:
+                    batch_embeddings = self.embedder.embed(batch_docs)
+                    all_embeddings.extend(batch_embeddings)
+                except Exception as e:
+                    logger.error(f"❌ 배치 {batch_num} 임베딩 실패: {e}")
+                    continue
+
+            if len(all_embeddings) != len(pdf_documents):
+                logger.warning(
+                    f"⚠️ 배치 {batch_num}: 임베딩 개수 불일치: 문서 {len(pdf_documents)}개, 임베딩 {len(all_embeddings)}개"
+                )
+                valid_count = len(all_embeddings)
+                pdf_documents = pdf_documents[:valid_count]
+                pdf_metadatas = pdf_metadatas[:valid_count]
+                pdf_ids = pdf_ids[:valid_count]
+
+            # Upsert to ChromaDB
+            logger.info(f"💾 배치 {batch_num}: ChromaDB Upsert 중 (force_update={force_update})...")
+            upsert_result = upsert_to_chroma(
+                texts=pdf_documents,
+                embeddings=all_embeddings,
+                ids=pdf_ids,
+                metadatas=pdf_metadatas,
+                persist_dir=self.persist_dir,
+                force_update=force_update,
+            )
+
+            result = {
+                "success": True,
+                "added": upsert_result["added"],
+                "updated": upsert_result["updated"],
+                "skipped": upsert_result["skipped"],
+                "total_processed": len(pdf_documents),
+            }
+
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ 배치 {batch_num} 처리 중 오류 발생: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "added": 0,
+                "updated": 0,
+                "skipped": 0,
+                "total_processed": 0,
+            }
+
+    def _process_batch_with_structured_loader(
+        self,
+        pdf_paths: List[Path],
+        json_dict: Dict[str, Any],
+        force_update: bool,
+        batch_num: int,
+    ) -> Dict[str, Any]:
+        """
+        Experiment 전략: StructuredDocumentLoader를 사용한 배치 처리
+        
+        Args:
+            pdf_paths: PDF 파일 경로 리스트
+            json_dict: JSON 메타데이터 딕셔너리
+            force_update: 중복 시 덮어쓰기 여부
+            batch_num: 배치 번호
+            
+        Returns:
+            처리 결과 요약
+        """
+        try:
+            logger.info(f"🔍 배치 {batch_num}: StructuredDocumentLoader를 사용한 청크 단위 처리 시작...")
+            
+            # 1. 문서 리스트 생성
+            documents = []
+            
+            for pdf_path in pdf_paths:
+                try:
+                    raw_text = extract_text_PyMuPDF(pdf_path)
+                    clean_text_result = clean_text(raw_text)
+                    
+                    if not clean_text_result.strip():
+                        continue
+                    
+                    pdf_filename = pdf_path.stem
+                    rec_idx = (
+                        pdf_filename.split("_")[-1]
+                        if "_" in pdf_filename
+                        else pdf_filename
+                    )
+                    
+                    json_metadata = json_dict.get(rec_idx, {})
+                    
+                    doc_item = {
+                        "text": clean_text_result,
+                        "metadata": {
+                            "source": "pdf",
+                            "filename": pdf_path.name,
+                            "document_type": "recruitment_pdf_with_json" if json_metadata else "recruitment_pdf_only",
+                            "rec_idx": rec_idx,
+                            **json_metadata,
+                        }
+                    }
+                    
+                    documents.append(doc_item)
+                    
+                except Exception as e:
+                    logger.error(f"❌ PDF 처리 실패 {pdf_path.name}: {e}")
+                    continue
+            
+            if not documents:
+                logger.warning(f"⚠️ 배치 {batch_num}: 처리할 문서가 없습니다.")
+                return {
+                    "success": False,
+                    "error": "No documents to process",
+                    "added": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "total_processed": 0,
+                }
+            
+            # 2. StructuredDocumentLoader로 청크 생성
+            logger.info(f"📦 배치 {batch_num}: {len(documents)}개 문서에서 청크 생성 중...")
+            chunks = self.structured_loader.load_from_documents(documents)
+            
+            if not chunks:
+                logger.warning(f"⚠️ 배치 {batch_num}: 생성된 청크가 없습니다.")
+                return {
+                    "success": False,
+                    "error": "No chunks generated",
+                    "added": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "total_processed": 0,
+                }
+            
+            # 3. 청크별 임베딩 생성
+            logger.info(f"🔮 배치 {batch_num}: {len(chunks)}개 청크의 임베딩 생성 중...")
+            chunk_texts = [chunk.text for chunk in chunks]
+            chunk_metadatas = [chunk.metadata for chunk in chunks]
+            chunk_ids = [chunk.metadata.get("chunk_id", f"chunk_{i}") for i, chunk in enumerate(chunks)]
+            
+            batch_size = 50
+            all_embeddings = []
+            
+            for i in range(0, len(chunk_texts), batch_size):
+                batch_texts = chunk_texts[i : i + batch_size]
+                
+                try:
+                    batch_embeddings = self.embedder.embed(batch_texts)
+                    all_embeddings.extend(batch_embeddings)
+                except Exception as e:
+                    logger.error(f"❌ 배치 {batch_num} 임베딩 실패: {e}")
+                    continue
+            
+            if len(all_embeddings) != len(chunk_texts):
+                logger.warning(f"⚠️ 배치 {batch_num}: 임베딩 개수 불일치: 청크 {len(chunk_texts)}개, 임베딩 {len(all_embeddings)}개")
+                valid_count = len(all_embeddings)
+                chunk_texts = chunk_texts[:valid_count]
+                chunk_metadatas = chunk_metadatas[:valid_count]
+                chunk_ids = chunk_ids[:valid_count]
+            
+            # 4. ChromaDB에 청크 단위 Upsert
+            logger.info(f"💾 배치 {batch_num}: {len(chunk_texts)}개 청크를 ChromaDB에 Upsert 중... (force_update={force_update})")
+            upsert_result = upsert_to_chroma(
+                texts=chunk_texts,
+                embeddings=all_embeddings,
+                ids=chunk_ids,
+                metadatas=chunk_metadatas,
+                persist_dir=self.persist_dir,
+                force_update=force_update,
+            )
+            
+            result = {
+                "success": True,
+                "added": upsert_result["added"],
+                "updated": upsert_result["updated"],
+                "skipped": upsert_result["skipped"],
+                "total_processed": len(chunk_texts),
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 배치 {batch_num} StructuredDocumentLoader 처리 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": str(e),
+                "added": 0,
+                "updated": 0,
+                "skipped": 0,
+                "total_processed": 0,
             }
