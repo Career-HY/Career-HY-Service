@@ -137,6 +137,7 @@ class StructuredDocumentLoader:
             doc_tags = parsed_chunks[0].get("metadata", {}).get("tags", [])
         chunks = []
         from collections import defaultdict
+
         section_counters = defaultdict(int)
 
         for parsed_chunk in parsed_chunks:
@@ -157,7 +158,8 @@ class StructuredDocumentLoader:
                 **base_metadata,
                 "chunk_id": chunk_id,
                 "rec_idx": base_metadata["rec_idx"],
-                "company": base_metadata.get("company") or base_metadata.get("company_name"),
+                "company": base_metadata.get("company")
+                or base_metadata.get("company_name"),
                 "title": base_metadata.get("title") or base_metadata.get("post_title"),
                 "url": base_metadata.get("url") or base_metadata.get("detail_url"),
                 "section_type": section_type,
@@ -185,3 +187,103 @@ class StructuredDocumentLoader:
                 )
 
         return chunks
+
+    def _create_fallback_chunk(
+        self, raw_text: str, base_metadata: Dict[str, Any], tags: List[str]
+    ) -> List[Chunk]:
+        """
+        Target 섹션이 없을 때 fallback 청크 생성
+
+        하이브리드 접근:
+        - 900자 이하: 경량 컨텍스트 (회사+직무+태그만)
+        - 900자 초과: 400자 단위 청킹
+
+        Args:
+            raw_text: 문서 원본 텍스트
+            base_metadata: 기본 메타데이터 (rec_idx, company, title, url 포함)
+                원본 S3 JSON 메타데이터 전체 포함 (deadline, start_date, crawling_time 등)
+            tags: 문서 태그
+
+        Returns:
+            Fallback Chunk 객체 리스트
+        """
+        # 전처리된 텍스트 길이 확인
+        max_raw_length = 2000
+        truncated_raw_text = raw_text[:max_raw_length]
+
+        # Context 추가한 전체 텍스트
+        full_text_with_context = (
+            f"[회사: {base_metadata['company']}] "
+            f"[직무: {base_metadata['title']}]\n\n"
+            f"{truncated_raw_text}"
+        )
+
+        text_length = len(full_text_with_context)
+
+        # 900자 이하: 경량 컨텍스트 생성
+        if text_length <= 900:
+            lightweight_text = f"회사: {base_metadata['company']}\n"
+            lightweight_text += f"직무: {base_metadata['title']}\n"
+
+            if tags:
+                tags_str = ", ".join(tags[:5])
+                if len(tags) > 5:
+                    tags_str += f" 외 {len(tags)-5}개"
+                lightweight_text += f"태그: {tags_str}"
+
+            chunk_metadata = {
+                **base_metadata,  # 원본 S3 JSON 메타데이터 전체 포함
+                "chunk_id": f"{base_metadata['rec_idx']}_full_text_0",
+                "rec_idx": base_metadata["rec_idx"],
+                "company": base_metadata.get("company")
+                or base_metadata.get("company_name"),
+                "title": base_metadata.get("title") or base_metadata.get("post_title"),
+                "url": base_metadata.get("url") or base_metadata.get("detail_url"),
+                "section_type": "full_text",
+                "section_length": len(lightweight_text),
+                "tags": tags,
+                "is_fallback": True,
+                "is_lightweight": True,
+                # deadline, start_date, crawling_time 명시적으로 보장
+                "deadline": base_metadata.get("deadline"),
+                "start_date": base_metadata.get("start_date"),
+                "crawling_time": base_metadata.get("crawling_time"),
+            }
+
+            return [Chunk(text=lightweight_text, metadata=chunk_metadata)]
+
+        # 900자 초과: 400자 단위 청킹
+        else:
+            chunks = []
+            chunk_size = 400
+            num_chunks = (text_length + chunk_size - 1) // chunk_size  # 올림
+
+            for i in range(num_chunks):
+                start_idx = i * chunk_size
+                end_idx = min(start_idx + chunk_size, text_length)
+                chunk_text = full_text_with_context[start_idx:end_idx]
+
+                chunk_metadata = {
+                    **base_metadata,  # 원본 S3 JSON 메타데이터 전체 포함
+                    "chunk_id": f"{base_metadata['rec_idx']}_full_text_{i}",
+                    "rec_idx": base_metadata["rec_idx"],
+                    "company": base_metadata.get("company")
+                    or base_metadata.get("company_name"),
+                    "title": base_metadata.get("title")
+                    or base_metadata.get("post_title"),
+                    "url": base_metadata.get("url") or base_metadata.get("detail_url"),
+                    "section_type": "full_text",
+                    "section_length": len(chunk_text),
+                    "tags": tags,
+                    "is_fallback": True,
+                    "chunk_index": i,
+                    "total_chunks": num_chunks,
+                    # deadline, start_date, crawling_time 명시적으로 보장
+                    "deadline": base_metadata.get("deadline"),
+                    "start_date": base_metadata.get("start_date"),
+                    "crawling_time": base_metadata.get("crawling_time"),
+                }
+
+                chunks.append(Chunk(text=chunk_text, metadata=chunk_metadata))
+
+            return chunks
