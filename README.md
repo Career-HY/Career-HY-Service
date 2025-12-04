@@ -121,35 +121,6 @@ docker swarm 기반 분산환경 구축
 <br>
 <br>
 
-## 📝 작업 순서 및 커밋 전략
-
-### 현재 진행 중인 작업
-
-전체 작업은 3개의 Phase로 나뉘어 진행됩니다:
-
-#### Phase 1: 서비스 코드를 Experiment 전략대로 변경 (우선순위: 높음) ⚡ 진행 중
-- 청킹 전략 변경 (섹션별 청킹)
-- ChromaDB 저장 방식 변경 (청크 단위)
-- 메타데이터 보존 강화
-- **현재 작업**: JobPostParser 구현 (메서드별 커밋)
-
-#### Phase 2: GT AGENT API 서비스 병합 (우선순위: 중간)
-- GT Agent 관련 API를 Backend 서비스에 통합
-- 기존 LLM Service의 GT Agent 기능을 Backend로 이동
-
-#### Phase 3: 통합 문서 및 README 정리 (우선순위: 낮음)
-- 여러 MD 파일 통합
-- README에 커밋 히스토리 반영
-- 문서 구조 정리
-
-
-### 상세 커밋 계획
-
-자세한 커밋 계획은 [`data_gt/COMMIT_STRATEGY.md`](./data_gt/COMMIT_STRATEGY.md)를 참고하세요.
-
-<br>
-<br>
-
 ## 🐹 주요 화면
 
 <img width="1822" alt="스크린샷 2025-06-09 오전 3 33 29" src="https://github.com/user-attachments/assets/d711bf56-1994-46a8-82ab-2945ae07384a" />
