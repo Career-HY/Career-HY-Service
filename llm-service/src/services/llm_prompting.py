@@ -65,7 +65,7 @@ class JobRecommendationResponse(BaseModel):
     recommendation_reasons: List[str] = Field(
         description="각 추천 채용공고의 추천 이유를 자세히 설명. recommended_job_indices의 개수와 정확히 일치해야 함.",
         max_items=3,
-        min_items=1,
+        min_items=0,
     )
     practical_tips: str = Field(
         description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
