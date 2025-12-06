@@ -50,17 +50,17 @@ class JobRecommendationResponse(BaseModel):
     """채용공고 추천 응답 구조"""
 
     recommended_job_indices: List[int] = Field(
-        description="추천하는 채용공고의 번호 (1-10), 채용공고 추천이 불필요한 경우 빈 배열",
+        description="추천하는 채용공고의 번호 (1-10). 적합한 공고가 있다면 1~3개를 추천해야 함. 정말 적합한 공고가 없는 경우에만 빈 배열 반환.",
         max_items=3,
-        min_items=3,
+        min_items=0,
     )
     overall_advice: str = Field(
         description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변"
     )
     recommendation_reasons: List[str] = Field(
-        description="각 추천 채용공고의 추천 이유 설명 자세히, 채용공고 추천이 없으면 빈 배열",
+        description="각 추천 채용공고의 추천 이유를 자세히 설명. recommended_job_indices의 개수와 정확히 일치해야 함.",
         max_items=3,
-        min_items=3,
+        min_items=0,
     )
     practical_tips: str = Field(
         description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
