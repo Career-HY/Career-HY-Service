@@ -26,19 +26,22 @@ logger = logging.getLogger(__name__)
 # -----------------------------
 # 모듈 상수
 # -----------------------------
-INTENT_HISTORY_LIMIT = 2          # 의도 분류 시 최근 대화 메시지 수
-CHAT_HISTORY_LIMIT = 10           # 프롬프트에 포함할 최대 대화 메시지 수
-MAX_RECOMMENDATIONS = 3           # LLM이 반환할 최대 추천 공고 수
-NUM_SEARCH_DOCS = 10              # 검색으로 전달되는 채용공고 수
+INTENT_HISTORY_LIMIT = 2  # 의도 분류 시 최근 대화 메시지 수
+CHAT_HISTORY_LIMIT = 10  # 프롬프트에 포함할 최대 대화 메시지 수
+MAX_RECOMMENDATIONS = 3  # LLM이 반환할 최대 추천 공고 수
+NUM_SEARCH_DOCS = 10  # 검색으로 전달되는 채용공고 수
+
 
 # -----------------------------
 # Intent Enum
 # -----------------------------
 class IntentType(str, Enum):
     """사용자 질문 의도 종류"""
+
     REJECT = "REJECT"
     SEARCH_NEEDED = "SEARCH_NEEDED"
     NO_SEARCH = "NO_SEARCH"
+
 
 # -----------------------------
 # LangChain with_structured_output을 위한 Pydantic 모델
@@ -62,6 +65,7 @@ class JobRecommendationResponse(BaseModel):
     practical_tips: str = Field(
         description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
     )
+
 
 # -----------------------------
 # LLMPromptingService
@@ -173,7 +177,9 @@ class LLMPromptingService:
             )
 
             classification_prompt = (
-                history_text + INTENT_ROUTER_STATIC + f"사용자 질문: {query}\n\n답변: REJECT, SEARCH_NEEDED, NO_SEARCH 중 하나만"
+                history_text
+                + INTENT_ROUTER_STATIC
+                + f"사용자 질문: {query}\n\n답변: REJECT, SEARCH_NEEDED, NO_SEARCH 중 하나만"
             )
 
             logger.debug(f"📝 의도 분류 프롬프트 전송 중...")
@@ -319,7 +325,10 @@ class LLMPromptingService:
 
         guidance = RECOMMENDATION_GUIDANCE
 
-        return base_prompt + "\n다음은 사용자의 프로필과 관심사에 맞춰 검색된 " f"{NUM_SEARCH_DOCS}개 채용공고입니다:\n" + formatted_docs + guidance
+        return (
+            base_prompt + "\n다음은 사용자의 프로필과 관심사에 맞춰 검색된 "
+            f"{NUM_SEARCH_DOCS}개 채용공고입니다:\n" + formatted_docs + guidance
+        )
 
     @traceable(name="llm_response_generation")
     async def generate_response(
@@ -343,7 +352,9 @@ class LLMPromptingService:
             # ----- Chat History -----
             history_text = ""
             if chat_history:
-                history_text = self._format_chat_history(chat_history, limit=CHAT_HISTORY_LIMIT)
+                history_text = self._format_chat_history(
+                    chat_history, limit=CHAT_HISTORY_LIMIT
+                )
                 history_text = f"이전 대화 내용:\n{history_text}\n"
 
             # ----- Profile Summary -----
@@ -441,8 +452,9 @@ class LLMPromptingService:
 
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
-            result: JobRecommendationResponse = await structured_llm.ainvoke(prompt)
-            function_args = result.dict()
+            result = await structured_llm.ainvoke(prompt)
+            # Pydantic v2 호환: result가 이미 dict일 수도 있음
+            function_args = result if isinstance(result, dict) else result.model_dump()
 
             # LLM structured output 결과 로깅
             logger.info(f"🤖 LLM Structured Output 결과:")
@@ -504,4 +516,3 @@ class LLMPromptingService:
         라우트 레이어에서 문서 검색 필요 여부를 판단할 수 있게 해준다.
         """
         return await self._classify_query_intent(query, chat_history)
-
