@@ -447,8 +447,16 @@ class LLMPromptingService:
     ) -> Dict:
         """문서 검색 기반 채용공고 추천 응답을 생성합니다."""
         try:
+            # 검색된 채용공고 제목 로깅
+            logger.info(f"📋 검색된 채용공고 제목들:")
+            for i, doc in enumerate(documents[:10], 1):
+                logger.info(f"  {i}. {doc.title}")
+
             # 최종 프롬프트 생성
             prompt = self._build_recommendation_prompt(base_prompt, documents)
+
+            # 프롬프트 일부 로깅 (디버깅용)
+            logger.debug(f"🔍 생성된 프롬프트 (앞 500자): {prompt[:500]}...")
 
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
