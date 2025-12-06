@@ -220,9 +220,21 @@ class LLMPromptingService:
             indices = function_args.get("recommended_job_indices", [])
             reasons = function_args.get("recommendation_reasons", [])
 
-            # 빈 배열인 경우 (일반 상담/조언) 빈 리스트 반환
+            # 빈 배열인 경우 상위 3개로 fallback
             if not indices:
-                return []
+                logger.warning("⚠️ LLM이 빈 배열 반환 - 상위 3개로 fallback 사용")
+                for i, doc in enumerate(documents[:3]):
+                    recommended_job = RecommendedJob(
+                        rec_idx=doc.rec_idx,
+                        title=doc.title,
+                        url=doc.url,
+                        deadline=doc.deadline,
+                        start_date=doc.start_date,
+                        crawling_time=doc.crawling_time,
+                        recommendation_reason=f"검색 결과 상위 {i+1}번째 채용공고",
+                    )
+                    recommended_jobs.append(recommended_job)
+                return recommended_jobs
 
             # RecommendedJob 객체 생성
             for i, idx in enumerate(indices[:3]):  # 최대 3개
@@ -251,11 +263,7 @@ class LLMPromptingService:
 
         except Exception as e:
             logger.warning(f"Function Call 결과 파싱 실패: {e}")
-            # 빈 인덱스 배열이면 빈 리스트 반환 (fallback하지 않음)
-            if not function_args.get("recommended_job_indices", []):
-                return []
-
-            # 파싱 실패하고 인덱스가 있는 경우만 fallback
+            # 파싱 실패 시 상위 3개로 fallback
             logger.warning("상위 3개로 fallback 사용")
             for i, doc in enumerate(documents[:3]):
                 recommended_job = RecommendedJob(
@@ -265,7 +273,7 @@ class LLMPromptingService:
                     deadline=doc.deadline,
                     start_date=doc.start_date,
                     crawling_time=doc.crawling_time,
-                    recommendation_reason=f"{i+1}번째 추천 - 상위 검색 결과",
+                    recommendation_reason=f"검색 결과 상위 {i+1}번째 채용공고",
                 )
                 recommended_jobs.append(recommended_job)
 
