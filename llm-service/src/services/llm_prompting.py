@@ -453,8 +453,20 @@ class LLMPromptingService:
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
             result = await structured_llm.ainvoke(prompt)
-            # Pydantic v2 호환: result가 이미 dict일 수도 있음
-            function_args = result if isinstance(result, dict) else result.model_dump()
+
+            # Pydantic v2 호환: result 타입에 따라 dict 변환
+            logger.debug(f"🔍 result 타입: {type(result)}")
+            if isinstance(result, dict):
+                function_args = result
+            elif hasattr(result, 'model_dump'):
+                function_args = result.model_dump()
+            elif hasattr(result, 'dict'):
+                function_args = result.dict()
+            else:
+                # dict로 변환 시도
+                function_args = dict(result)
+
+            logger.debug(f"🔍 function_args 타입: {type(function_args)}, keys: {list(function_args.keys()) if isinstance(function_args, dict) else 'N/A'}")
 
             # LLM structured output 결과 로깅
             logger.info(f"🤖 LLM Structured Output 결과:")
@@ -472,20 +484,20 @@ class LLMPromptingService:
             )
 
             # 전체 응답 텍스트 생성
-            if function_args["recommended_job_indices"]:
+            if function_args.get("recommended_job_indices"):
                 # 채용공고 추천이 있는 경우 - 제목 목록 제거, 조언과 팁만 포함
                 llm_response = f"""
-{function_args['overall_advice']}
+{function_args.get('overall_advice', '')}
 
 실무 팁:
-{function_args['practical_tips']}
+{function_args.get('practical_tips', '')}
 """.strip()
             else:
                 # 일반 상담/조언인 경우 (채용공고 추천 없음)
                 llm_response = f"""
-{function_args['overall_advice']}
+{function_args.get('overall_advice', '')}
 
-{function_args['practical_tips']}
+{function_args.get('practical_tips', '')}
 """.strip()
 
             # 추천된 채용공고 파싱
