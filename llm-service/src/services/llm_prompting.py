@@ -50,9 +50,9 @@ class JobRecommendationResponse(BaseModel):
     """채용공고 추천 응답 구조"""
 
     recommended_job_indices: List[int] = Field(
-        description="추천하는 채용공고의 번호 (1-10). 적합한 공고가 있다면 1~3개를 추천해야 함. 정말 적합한 공고가 없는 경우에만 빈 배열 반환.",
+        description="위 채용공고 목록(1-10번)에서 사용자에게 가장 적합한 1~3개를 선택하여 번호를 반환하세요. 예: [1, 3, 5]",
         max_items=3,
-        min_items=0,
+        min_items=1,
     )
     overall_advice: str = Field(
         description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변"
@@ -60,7 +60,7 @@ class JobRecommendationResponse(BaseModel):
     recommendation_reasons: List[str] = Field(
         description="각 추천 채용공고의 추천 이유를 자세히 설명. recommended_job_indices의 개수와 정확히 일치해야 함.",
         max_items=3,
-        min_items=0,
+        min_items=1,
     )
     practical_tips: str = Field(
         description="지원 시 도움이 될 수 있는 구체적인 팁, 또는 추가 조언"
@@ -456,7 +456,7 @@ class LLMPromptingService:
             prompt = self._build_recommendation_prompt(base_prompt, documents)
 
             # 프롬프트 일부 로깅 (디버깅용)
-            logger.debug(f"🔍 생성된 프롬프트 (앞 500자): {prompt[:500]}...")
+            logger.info(f"🔍 생성된 프롬프트 (마지막 800자):\n{prompt[-800:]}")
 
             # LangChain with_structured_output 방식
             structured_llm = self.llm.with_structured_output(JobRecommendationResponse)
