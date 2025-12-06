@@ -57,7 +57,7 @@ class JobRecommendationResponse(BaseModel):
             "예: [1, 3, 5] 또는 [2] 또는 []"
         ),
         max_items=3,
-        min_items=0,
+        min_items=1,
     )
     overall_advice: str = Field(
         description="전반적인 취업 준비 방향성과 조언, 또는 질문에 대한 답변"
